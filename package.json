@@ -1,0 +1,25 @@
+{
+  "name": "market",
+  "private": true,
+  "license": "AGPLv3",
+  "scripts": {
+    "build": "turbo build",
+    "build:app": "turbo build --filter=app --filter=@radroots/*",
+    "dev": "turbo dev --filter=@radroots/*"
+  },
+  "devDependencies": {
+    "turbo": "2.5.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "workspaces": {
+    "packages": [
+      "app",
+      "packages/*"
+    ],
+    "nohoist": []
+  },
+  "packageManager": "yarn@1.22.22"
+}
