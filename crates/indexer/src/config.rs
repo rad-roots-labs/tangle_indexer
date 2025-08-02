@@ -1,8 +1,7 @@
-use std::path::Path;
-
 use anyhow::Result;
 use config::{Config, ConfigError, File};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use thiserror::Error;
 use tracing::error;
 
@@ -21,6 +20,7 @@ pub struct Relay {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Service {
     pub output_dir: String,
+    pub logs_dir: String,
     pub flush_interval: u64,
 }
 
