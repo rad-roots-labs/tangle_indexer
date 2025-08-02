@@ -50,4 +50,5 @@ notes*.txt
 notes*.md
 tree*.txt
 git-diff*.txt
+prompt*.txt
 justfile

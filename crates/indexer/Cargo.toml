@@ -6,6 +6,8 @@ license = "AGPLv3"
 edition = "2021"
 
 [dependencies]
+indexer-utils = { path = "../indexer-utils" }
+
 anyhow = "1.0"
 clap = { version = "4", features = ["derive"] }
 config = "0.15"
