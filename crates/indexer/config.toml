@@ -1,0 +1,7 @@
+[relay]
+url = "ws://127.0.0.1:8080"
+db_path = "data/nostr-rs-relay/nostr.db"
+
+[service]
+output_dir = "data/radroots-market-relay-indexer"
+flush_interval = 20
