@@ -5,27 +5,27 @@ use std::fmt;
 use crate::domain::event::{IndexerKey, METADATA_INDEX_DIRECTORY};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum IndexerEvent {
+pub enum IndexerEventKind {
     Metadata,
 }
 
-impl IndexerEvent {
-    pub const ALL: [IndexerEvent; 1] = [IndexerEvent::Metadata];
+impl IndexerEventKind {
+    pub const ALL: [IndexerEventKind; 1] = [IndexerEventKind::Metadata];
 
     pub const fn as_u64(self) -> u64 {
         match self {
-            IndexerEvent::Metadata => 0,
+            IndexerEventKind::Metadata => 0,
         }
     }
 
     pub const fn paths(self) -> &'static [IndexerKey] {
         match self {
-            IndexerEvent::Metadata => &METADATA_INDEX_DIRECTORY,
+            IndexerEventKind::Metadata => &METADATA_INDEX_DIRECTORY,
         }
     }
 }
 
-impl fmt::Display for IndexerEvent {
+impl fmt::Display for IndexerEventKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_u64())
     }
@@ -33,20 +33,20 @@ impl fmt::Display for IndexerEvent {
 
 #[derive(thiserror::Error, Debug)]
 #[error("unknown event kind: {0}")]
-pub struct IndexerEventParseError(pub u64);
+pub struct IndexerEventKindParseError(pub u64);
 
-impl TryFrom<u64> for IndexerEvent {
-    type Error = IndexerEventParseError;
+impl TryFrom<u64> for IndexerEventKind {
+    type Error = IndexerEventKindParseError;
 
     fn try_from(val: u64) -> Result<Self, Self::Error> {
         match val {
-            0 => Ok(IndexerEvent::Metadata),
-            other => Err(IndexerEventParseError(other)),
+            0 => Ok(IndexerEventKind::Metadata),
+            other => Err(IndexerEventKindParseError(other)),
         }
     }
 }
 
-impl Serialize for IndexerEvent {
+impl Serialize for IndexerEventKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

@@ -1,14 +1,14 @@
 use indexer_utils::sqlite::{RustqliteError, SqliteResult, SqliteRow, SqliteType};
 use serde::Serialize;
 
-use crate::domain::event::{IndexerEvent, IndexerEventParseError};
+use crate::domain::event::{IndexerEventKind, IndexerEventKindParseError};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RelayEventRecord {
     pub event_hash: String,
     pub author: String,
     pub created_at: u32,
-    pub kind: IndexerEvent,
+    pub kind: IndexerEventKind,
     pub content: String,
 }
 
@@ -19,10 +19,11 @@ impl RelayEventRecord {
         let created_at: u32 = row.get(2)?;
         let kind_num: u32 = row.get(3)?;
 
-        let kind =
-            IndexerEvent::try_from(kind_num as u64).map_err(|e: IndexerEventParseError| {
+        let kind = IndexerEventKind::try_from(kind_num as u64).map_err(
+            |e: IndexerEventKindParseError| {
                 RustqliteError::FromSqlConversionFailure(3, SqliteType::Integer, Box::new(e))
-            })?;
+            },
+        )?;
 
         let content: String = row.get(4)?;
         Ok(RelayEventRecord {

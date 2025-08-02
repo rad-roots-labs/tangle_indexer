@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use indexer_utils::file::fs_mkdir;
 
-use crate::{config::Settings, IndexerEvent};
+use crate::{config::Settings, IndexerEventKind};
 
 pub fn create_index_dirs(settings: &Settings) -> Result<()> {
-    for kind in IndexerEvent::ALL {
+    for kind in IndexerEventKind::ALL {
         let kind_str = kind.as_u64().to_string();
 
         for subdir in kind.paths() {
