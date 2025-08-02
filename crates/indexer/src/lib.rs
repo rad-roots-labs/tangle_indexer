@@ -11,7 +11,7 @@ pub mod config;
 pub mod telemetry;
 
 pub mod domain {
-    pub mod event;
+    pub mod events;
     pub mod indexer;
 }
 
@@ -21,10 +21,12 @@ pub mod relay {
 }
 
 pub use config::Settings;
-pub use domain::event::{IndexerEventKind, IndexerKey};
 pub use relay::record::RelayEventRecord;
 
-use crate::relay::event::RelayIndexerEvent;
+use crate::{
+    domain::indexer::{kind::IndexerEventKind, write_index_events},
+    relay::event::RelayIndexerEvent,
+};
 
 pub async fn run(settings: Settings) -> Result<()> {
     let select_event_kinds = IndexerEventKind::ALL
@@ -56,7 +58,7 @@ pub async fn run(settings: Settings) -> Result<()> {
             .collect::<Result<_, _>>()
             .context("collecting RelayEventRecord rows")?;
 
-        info!(record_count = records.len(), "Loaded RelayEventRecords");
+        info!(record_count = records.len(), "Loaded relay records");
 
         let records_by_kind: HashMap<IndexerEventKind, Vec<RelayIndexerEvent>> = records
             .into_iter()
@@ -71,15 +73,21 @@ pub async fn run(settings: Settings) -> Result<()> {
                 },
             );
 
-        info!(
-            records_count_by_kind = records_by_kind.len(),
-            "Loaded RelayIndexerEvents"
-        );
+        let updated = write_index_events(&settings, &records_by_kind)?;
+
+        info!(updated_files = updated.len(), "Updated index events");
 
         // sleep
         let elapsed = iteration_start.elapsed();
         let interval = Duration::from_secs(settings.service.flush_interval);
-        tokio::time::sleep(interval.saturating_sub(elapsed)).await;
+        let delay = interval.saturating_sub(elapsed);
+
+        info!(
+            elapsed_ms = elapsed.as_millis(),
+            sleeping_ms = delay.as_millis(),
+            "Iteration complete"
+        );
+        tokio::time::sleep(delay).await;
     }
 
     #[allow(unreachable_code)]

@@ -1,7 +1,7 @@
 use indexer_utils::sqlite::{RustqliteError, SqliteResult, SqliteRow, SqliteType};
 use serde::Serialize;
 
-use crate::domain::event::{IndexerEventKind, IndexerEventKindParseError};
+use crate::domain::indexer::kind::{IndexerEventKind, IndexerEventKindParseError};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RelayEventRecord {

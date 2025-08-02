@@ -2,7 +2,7 @@ use serde::ser::Serializer;
 use serde::Serialize;
 use std::fmt;
 
-use crate::domain::event::{IndexerKey, METADATA_INDEX_DIRECTORY};
+use crate::domain::indexer::{IndexerKey, METADATA_INDEX_DIRECTORY};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IndexerEventKind {

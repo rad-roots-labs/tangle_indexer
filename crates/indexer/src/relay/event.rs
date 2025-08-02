@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::event::IndexerEventKindParseError, IndexerEventKind, RelayEventRecord};
+use crate::{
+    domain::indexer::kind::{IndexerEventKind, IndexerEventKindParseError},
+    RelayEventRecord,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RelayRawEvent {
