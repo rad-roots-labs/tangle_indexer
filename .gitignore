@@ -45,10 +45,13 @@ Thumbs.db
 .tmp*
 .backup*
 .dev*
+.local
 .vscode
 notes*.txt
 notes*.md
 tree*.txt
 git-diff*.txt
 prompt*.txt
+tree*.txt
 justfile
+

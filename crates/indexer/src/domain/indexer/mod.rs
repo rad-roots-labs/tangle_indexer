@@ -1,24 +1,10 @@
-use std::{collections::HashMap, path::PathBuf};
-
-use anyhow::{Context, Result};
-use indexer_utils::file::fs_mkdir;
-
-use crate::{
-    config::Settings,
-    domain::indexer::{
-        kind::IndexerEventKind,
-        models::{Event0StaticIndexes, EventIndexes, WriteEventIndexes},
-    },
-    relay::event::RelayIndexerEvent,
-};
-
 pub mod key;
 pub mod kind;
 pub mod models;
 
 pub use key::{IndexerKey, METADATA_INDEX_DIRECTORY};
 
-pub fn create_index_dirs(settings: &Settings) -> Result<()> {
+/*pub fn create_index_dirs(settings: &Settings) -> Result<()> {
     for kind in IndexerEventKind::ALL {
         let kind_str = kind.as_u64().to_string();
 
@@ -59,4 +45,4 @@ pub fn write_index_events(
     }
 
     Ok(updated)
-}
+}*/

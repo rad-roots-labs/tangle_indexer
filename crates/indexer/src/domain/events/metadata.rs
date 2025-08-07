@@ -1,7 +1,7 @@
 use anyhow::Result;
 use radroots_common::models::events::{
-    RadrootsNostrEvent, RadrootsMetadataEvent, RadrootsMetadataEventData,
-    RadrootsMetadataEventDataMetadata,
+    RadrootsMetadataEvent, RadrootsMetadataEventData, RadrootsMetadataEventDataMetadata,
+    RadrootsNostrEvent,
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -22,6 +22,8 @@ pub enum RadrootsMetadataEventError {
 }
 
 pub fn create_radroots_metadata_event_data(
+    id: String,
+    public_key: String,
     content: String,
     tags: Vec<Vec<String>>,
 ) -> Result<RadrootsMetadataEventData, RadrootsMetadataEventError> {
@@ -46,18 +48,29 @@ pub fn create_radroots_metadata_event_data(
     }
 
     Ok(RadrootsMetadataEventData {
+        id,
+        public_key,
         metadata,
         published_at,
     })
 }
 
 pub trait ToRadrootsMetadataEvent {
-    fn to_radroots_metadata_event(self) -> Result<RadrootsMetadataEvent, RadrootsMetadataEventError>;
+    fn to_radroots_metadata_event(
+        self,
+    ) -> Result<RadrootsMetadataEvent, RadrootsMetadataEventError>;
 }
 
 impl ToRadrootsMetadataEvent for RelayIndexerEvent {
-    fn to_radroots_metadata_event(self) -> Result<RadrootsMetadataEvent, RadrootsMetadataEventError> {
-        let data = create_radroots_metadata_event_data(self.content.clone(), self.tags.clone())?;
+    fn to_radroots_metadata_event(
+        self,
+    ) -> Result<RadrootsMetadataEvent, RadrootsMetadataEventError> {
+        let data = create_radroots_metadata_event_data(
+            self.id.clone(),
+            self.pubkey.clone(),
+            self.content.clone(),
+            self.tags.clone(),
+        )?;
 
         let kind = self.kind.as_u64();
 

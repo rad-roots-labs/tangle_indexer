@@ -17,7 +17,9 @@
   "workspaces": {
     "packages": [
       "app",
-      "packages/*"
+      "packages/*",
+      "../../../global/packages/*",
+      "../../../crates/radroots-common/bindings/ts*"
     ],
     "nohoist": []
   },

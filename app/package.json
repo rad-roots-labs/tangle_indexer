@@ -4,8 +4,9 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
+		"gen": "generate-localised-routes",
 		"dev": "vite dev --mode development",
-		"prebuild": "rimraf build && rimraf .svelte-kit",
+		"clean": "rimraf build && rimraf .svelte-kit",
 		"build": "vite build",
 		"build:dev": "vite build --mode development",
 		"preview": "vite preview",
@@ -27,5 +28,10 @@
 		"typescript": "5.8.3",
 		"vite": "7.0.6"
 	},
-	"dependencies": {}
+	"dependencies": {
+		"@radroots/apps-lib": "*",
+		"@radroots/utils-nostr": "*",
+		"@radroots/radroots-common-bindings": "*",
+		"@nostr-dev-kit/ndk": "2.14.33"
+	}
 }

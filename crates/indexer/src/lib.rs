@@ -1,5 +1,8 @@
 use anyhow::{Context, Result};
-use indexer_utils::sqlite::{sqlite_conn, sqlite_stmt};
+use indexer_utils::{
+    database::IndexerDb,
+    sqlite::{sqlite_conn, sqlite_stmt},
+};
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
@@ -9,79 +12,117 @@ use tracing::info;
 pub mod cli;
 pub mod config;
 pub mod telemetry;
-
 pub mod domain {
     pub mod events;
     pub mod indexer;
 }
-
 pub mod relay {
     pub mod event;
     pub mod record;
 }
-
+use crate::{
+    domain::indexer::{
+        kind::IndexerEventKind,
+        models::{Event0StaticIndexes, EventIndexes, WriteEventIndexes},
+    },
+    relay::event::RelayIndexerEvent,
+};
 pub use config::Settings;
 pub use relay::record::RelayEventRecord;
 
-use crate::{
-    domain::indexer::{kind::IndexerEventKind, write_index_events},
-    relay::event::RelayIndexerEvent,
-};
-
 pub async fn run(settings: Settings) -> Result<()> {
-    let select_event_kinds = IndexerEventKind::ALL
+    let db_idx = IndexerDb::open(&format!("{}/indexer_db", settings.service.output_dir))?;
+    let tree_raw = "hashes";
+    let tree_events_metadata = "metadata_events";
+    let tree_stats = "stats";
+
+    let last_created_at_db: u32 = db_idx
+        .get_raw(tree_stats, "last_created_at")?
+        .map(|ivec| {
+            let arr: [u8; 4] = ivec.as_ref().try_into().unwrap();
+            u32::from_be_bytes(arr)
+        })
+        .unwrap_or(0);
+    let mut last_created_at = last_created_at_db;
+
+    let event_kinds = IndexerEventKind::ALL
         .iter()
         .map(|k| k.as_u64().to_string())
         .collect::<Vec<_>>()
         .join(", ");
 
-    let select_events_query = format!(
+    let relay_query = format!(
         "SELECT hex(event_hash), hex(author), created_at, kind, content \
-         FROM event WHERE kind IN ({select_event_kinds})"
+         FROM event WHERE kind IN ({}) AND created_at > ?",
+        event_kinds
     );
 
     loop {
         let iteration_start = Instant::now();
-
-        let relay_db_conn = sqlite_conn(&settings.relay.database_path).with_context(|| {
+        let relay_db = sqlite_conn(&settings.relay.database_path).with_context(|| {
             format!(
-                "Could not open relay database at {}",
+                "Could not open relay DB at {}",
                 settings.relay.database_path
             )
         })?;
-
-        let mut stmt = sqlite_stmt(&relay_db_conn, &select_events_query)
-            .context("Could not prepare event query")?;
+        let mut stmt =
+            sqlite_stmt(&relay_db, &relay_query).context("Could not prepare event query")?;
 
         let records: Vec<RelayEventRecord> = stmt
-            .query_map([], RelayEventRecord::from_row)?
+            .query_map([last_created_at], RelayEventRecord::from_row)?
             .collect::<Result<_, _>>()
             .context("collecting RelayEventRecord rows")?;
-
         info!(record_count = records.len(), "Loaded relay records");
 
-        let records_by_kind: HashMap<IndexerEventKind, Vec<RelayIndexerEvent>> = records
-            .into_iter()
-            .map(RelayIndexerEvent::try_from)
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .fold(
-                HashMap::<IndexerEventKind, Vec<RelayIndexerEvent>>::new(),
-                |mut acc, ev| {
-                    acc.entry(ev.kind).or_default().push(ev);
-                    acc
-                },
-            );
+        let mut records_kind: HashMap<IndexerEventKind, Vec<RelayIndexerEvent>> = HashMap::new();
+        for rec in records.into_iter() {
+            let iev = RelayIndexerEvent::try_from(rec)?;
+            records_kind.entry(iev.kind).or_default().push(iev);
+        }
 
-        let updated = write_index_events(&settings, &records_by_kind)?;
+        if let Some(metadata_events) = records_kind.remove(&IndexerEventKind::Metadata) {
+            if !metadata_events.is_empty() {
+                for ev in &metadata_events {
+                    last_created_at = last_created_at.max(ev.created_at);
+                    let id = &ev.id;
+                    let hash = &ev.hash;
 
-        info!(updated_files = updated.len(), "Updated index events");
+                    let skip = if let Some(old) = db_idx.get_raw(tree_raw, id)? {
+                        old.as_ref() == hash.as_bytes()
+                    } else {
+                        false
+                    };
+                    if skip {
+                        continue;
+                    }
 
-        // sleep
+                    db_idx.insert(tree_events_metadata, id, ev)?;
+                    db_idx.insert_raw(tree_raw, id, hash.as_bytes())?;
+                }
+
+                db_idx.insert_raw(
+                    tree_stats,
+                    "last_created_at",
+                    &last_created_at.to_be_bytes(),
+                )?;
+                db_idx.flush()?;
+
+                let raw_metadata_events: Vec<RelayIndexerEvent> =
+                    db_idx.get_all(tree_events_metadata)?;
+                let indexed_metadata_events = Event0StaticIndexes::build(&raw_metadata_events)?;
+                let mut updated_indexes = Vec::new();
+                indexed_metadata_events.write(&settings, &mut updated_indexes)?;
+                info!(
+                    written = updated_indexes.len(),
+                    "Written {} index files",
+                    updated_indexes.len()
+                );
+            }
+        }
+
         let elapsed = iteration_start.elapsed();
         let interval = Duration::from_secs(settings.service.flush_interval);
         let delay = interval.saturating_sub(elapsed);
-
         info!(
             elapsed_ms = elapsed.as_millis(),
             sleeping_ms = delay.as_millis(),
@@ -89,7 +130,6 @@ pub async fn run(settings: Settings) -> Result<()> {
         );
         tokio::time::sleep(delay).await;
     }
-
     #[allow(unreachable_code)]
     Ok(())
 }

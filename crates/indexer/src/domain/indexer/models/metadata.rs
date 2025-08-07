@@ -1,12 +1,13 @@
 use indexer_utils::{
-    file::{fs_mkdir, fs_write_with_hash_check},
+    file::fs_mkdir,
     logs::truncate_log,
+    nostr::public_key_to_npub,
     paths::paths_join,
+    write::{compute_hash, write_hash, write_json},
 };
 use radroots_common::models::events::RadrootsMetadataEvent;
 use serde_json::Value;
-use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 
 use crate::{
@@ -22,12 +23,33 @@ use crate::{
     Settings,
 };
 
+macro_rules! write_if_stale {
+    ($path:expr, $data:expr, $updated:expr) => {{
+        let hash = compute_hash(&$data)?;
+        let hash_path = $path.with_extension("sha256.txt");
+
+        let needs_write = if $path.exists() && hash_path.exists() {
+            let stored = fs::read_to_string(&hash_path)?;
+            stored.trim() != hash
+        } else {
+            true
+        };
+
+        if needs_write {
+            write_json(&$path, &$data)?;
+            write_hash(&$path, &hash)?;
+            $updated.push($path.clone());
+        }
+    }};
+}
+
 #[derive(Debug)]
 pub struct Event0StaticIndexes {
     events: Vec<RadrootsMetadataEvent>,
     events_id: BTreeMap<String, RadrootsMetadataEvent>,
+    events_author: BTreeMap<String, RadrootsMetadataEvent>,
     events_nip05: BTreeMap<String, RadrootsMetadataEvent>,
-    events_author: BTreeMap<String, Vec<RadrootsMetadataEvent>>,
+    events_npub: BTreeMap<String, RadrootsMetadataEvent>,
 }
 
 impl EventIndexes for Event0StaticIndexes {
@@ -41,25 +63,25 @@ impl EventIndexes for Event0StaticIndexes {
     fn build(raw_events: &[Self::Event]) -> Result<Self, NostrEventsStaticError> {
         let mut events = Vec::with_capacity(raw_events.len());
         let mut events_id = BTreeMap::new();
+        let mut events_author = BTreeMap::new();
         let mut events_nip05 = BTreeMap::new();
-        let mut events_author: BTreeMap<String, Vec<RadrootsMetadataEvent>> = BTreeMap::new();
+        let mut events_npub = BTreeMap::new();
 
         for raw in raw_events {
             match raw.clone().to_radroots_metadata_event() {
-                Ok(parsed) => {
-                    let id = parsed.event.id.clone();
-                    let author = parsed.event.author.clone();
+                Ok(evt) => {
+                    let id = evt.event.id.clone();
+                    let author = evt.event.author.clone();
+                    events.push(evt.clone());
+                    events_id.insert(id.clone(), evt.clone());
+                    events_author.insert(author.clone(), evt.clone());
 
-                    events.push(parsed.clone());
-                    events_id.insert(id.clone(), parsed.clone());
-                    events_author
-                        .entry(author.clone())
-                        .or_default()
-                        .push(parsed.clone());
-
-                    if let Some(nip05) = &parsed.data.metadata.nip05 {
+                    if let Ok(npub) = public_key_to_npub(&author) {
+                        events_npub.insert(npub.to_lowercase(), evt.clone());
+                    }
+                    if let Some(nip05) = &evt.data.metadata.nip05 {
                         let normalized = nip05.replace("@radroots.market", "");
-                        events_nip05.insert(normalized, parsed);
+                        events_nip05.insert(normalized, evt.clone());
                     }
                 }
                 Err(err) => {
@@ -79,27 +101,18 @@ impl EventIndexes for Event0StaticIndexes {
         Ok(Event0StaticIndexes {
             events,
             events_id,
-            events_nip05,
             events_author,
+            events_nip05,
+            events_npub,
         })
     }
 
     fn index_json(&self, subdir: IndexerKey) -> Option<Value> {
         match subdir {
             IndexerKey::Id => serde_json::to_value(&self.events_id).ok(),
-            IndexerKey::Author => {
-                // Map author -> [event IDs]
-                let map: BTreeMap<&String, Vec<String>> = self
-                    .events_author
-                    .iter()
-                    .map(|(author, evts)| {
-                        let ids = evts.iter().map(|e| e.event.id.clone()).collect();
-                        (author, ids)
-                    })
-                    .collect();
-                serde_json::to_value(&map).ok()
-            }
+            IndexerKey::Author => serde_json::to_value(&self.events_author).ok(),
             IndexerKey::Nip05 => serde_json::to_value(&self.events_nip05).ok(),
+            IndexerKey::Npub => serde_json::to_value(&self.events_npub).ok(),
             _ => None,
         }
     }
@@ -108,25 +121,20 @@ impl EventIndexes for Event0StaticIndexes {
 impl WriteEventIndexes for Event0StaticIndexes {
     fn write(&self, settings: &Settings, updated: &mut Vec<PathBuf>) -> anyhow::Result<()> {
         let base = paths_join(&[
-            settings.service.output_dir.as_str(),
+            &settings.service.output_dir,
             "events",
             &IndexerEventKind::Metadata.as_u64().to_string(),
         ])?;
         fs_mkdir(&[&base])?;
 
-        // Write top-level events.json with all event IDs
-        let all_ids: Vec<&String> = self.events.iter().map(|e| &e.event.id).collect();
-        let top_events = base.join("events.json");
-        if fs_write_with_hash_check(&top_events, &all_ids)? {
-            updated.push(top_events.clone());
-        }
+        let idxs_root = base.join("events.json");
+        let ids: Vec<&String> = self.events.iter().map(|e| &e.event.id).collect();
+        write_if_stale!(idxs_root, ids, updated);
 
-        // Per-subdir indices
-        for &subdir in Event0StaticIndexes::subdirs().iter() {
+        for &subdir in Self::subdirs().iter() {
             let sub_base = base.join(subdir.as_str());
             fs_mkdir(&[sub_base.to_str().unwrap()])?;
 
-            // Write indexes.json (list of keys)
             let keys_lower: Vec<String> = match subdir {
                 IndexerKey::Id => self.events_id.keys().map(|k| k.to_lowercase()).collect(),
                 IndexerKey::Author => self
@@ -135,56 +143,46 @@ impl WriteEventIndexes for Event0StaticIndexes {
                     .map(|k| k.to_lowercase())
                     .collect(),
                 IndexerKey::Nip05 => self.events_nip05.keys().map(|k| k.to_lowercase()).collect(),
-                other => {
-                    warn!("No index keys for subdir {:?}", other);
-                    Vec::new()
-                }
+                IndexerKey::Npub => self.events_npub.keys().map(|k| k.to_lowercase()).collect(),
+                _ => Vec::new(),
             };
-            let idxs = sub_base.join("indexes.json");
-            if fs_write_with_hash_check(&idxs, &keys_lower)? {
-                updated.push(idxs.clone());
-            }
+            let idxs_subdir = sub_base.join("indexes.json");
+            write_if_stale!(idxs_subdir, keys_lower, updated);
 
-            // Write events.json according to subdir variant
             match subdir {
-                IndexerKey::Author => {
-                    // One events.json per-author, mapping event_id -> full RadrootsMetadataEvent
-                    for (author, evts_list) in &self.events_author {
-                        let author_dir = sub_base.join(author.to_lowercase());
-                        fs_mkdir(&[author_dir.to_str().unwrap()])?;
-
-                        let mut map: BTreeMap<String, &RadrootsMetadataEvent> = BTreeMap::new();
-                        for ev in evts_list {
-                            map.insert(ev.event.id.clone(), ev);
-                        }
-
-                        let evts_path = author_dir.join("events.json");
-                        if fs_write_with_hash_check(&evts_path, &map)? {
-                            updated.push(evts_path.clone());
-                        }
+                IndexerKey::Id => {
+                    for (key, evt) in &self.events_id {
+                        let dir = sub_base.join(key.to_lowercase());
+                        fs_mkdir(&[dir.to_str().unwrap()])?;
+                        write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
                     }
                 }
-                IndexerKey::Id => {
-                    // Flat events.json at subdir root
-                    let ids: Vec<&String> = self.events_id.values().map(|e| &e.event.id).collect();
-                    let evts = sub_base.join("events.json");
-                    if fs_write_with_hash_check(&evts, &ids)? {
-                        updated.push(evts.clone());
+                IndexerKey::Author => {
+                    for (key, evt) in &self.events_author {
+                        let dir = sub_base.join(key.to_lowercase());
+                        fs_mkdir(&[dir.to_str().unwrap()])?;
+                        write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
                     }
                 }
                 IndexerKey::Nip05 => {
-                    // Flat events.json at subdir root
-                    let ids: Vec<&String> =
-                        self.events_nip05.values().map(|e| &e.event.id).collect();
-                    let evts = sub_base.join("events.json");
-                    if fs_write_with_hash_check(&evts, &ids)? {
-                        updated.push(evts.clone());
+                    for (key, evt) in &self.events_nip05 {
+                        let dir = sub_base.join(key.to_lowercase());
+                        fs_mkdir(&[dir.to_str().unwrap()])?;
+                        write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
                     }
                 }
-                other => {
-                    // Default fallback: no writer implemented
-                    warn!("No static writer implemented for subdir {:?}", other);
+                IndexerKey::Npub => {
+                    for (key, evt) in &self.events_npub {
+                        let dir = sub_base.join(key.to_lowercase());
+                        fs_mkdir(&[dir.to_str().unwrap()])?;
+                        write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
+                    }
                 }
+                _ => {}
             }
         }
 

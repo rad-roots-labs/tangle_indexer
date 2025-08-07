@@ -16,8 +16,7 @@ pub struct RelayRawEvent {
     pub content: String,
     pub sig: String,
 }
-
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelayIndexerEvent {
     pub id: String,
     pub author: String,
