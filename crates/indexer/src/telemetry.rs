@@ -1,9 +1,12 @@
 use std::path::Path;
 use tracing_appender::rolling;
-use tracing_subscriber::{fmt, prelude::*, registry::Registry, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+
+#[cfg(feature = "audit")]
+use tracing_subscriber::filter::Targets;
 
 pub fn init(logs_dir: impl AsRef<Path>) {
-    let file_appender = rolling::daily(logs_dir, concat!(env!("CARGO_PKG_NAME"), ".log"));
+    let file_appender = rolling::daily(&logs_dir, concat!(env!("CARGO_PKG_NAME"), ".log"));
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     std::mem::forget(guard);
 
@@ -14,9 +17,25 @@ pub fn init(logs_dir: impl AsRef<Path>) {
         .with_ansi(false)
         .with_target(false);
 
-    Registry::default()
+    let subscriber = Registry::default()
         .with(EnvFilter::from_default_env())
         .with(stdout_layer)
-        .with(file_layer)
-        .init();
+        .with(file_layer);
+
+    #[cfg(feature = "audit")]
+    let subscriber = {
+        let audit_app = rolling::daily(&logs_dir, "audit.log");
+        let (audit_writer, audit_guard) = tracing_appender::non_blocking(audit_app);
+        std::mem::forget(audit_guard);
+
+        let audit_layer = fmt::layer()
+            .with_writer(audit_writer)
+            .with_ansi(false)
+            .with_target(true)
+            .with_filter(Targets::new().with_target("audit", tracing::Level::INFO));
+
+        subscriber.with(audit_layer)
+    };
+
+    subscriber.init();
 }

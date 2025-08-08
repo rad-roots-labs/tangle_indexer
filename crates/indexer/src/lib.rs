@@ -20,6 +20,17 @@ pub mod relay {
     pub mod event;
     pub mod record;
 }
+
+#[cfg(feature = "audit")]
+pub mod audit;
+
+#[cfg(not(feature = "audit"))]
+pub mod audit {
+    pub fn log_indexer_event(_: &crate::relay::event::RelayIndexerEvent) {}
+    pub fn log_metadata_event(_: &radroots_common::models::events::RadrootsMetadataEvent) {}
+    pub fn log_listing_event(_: &radroots_common::models::events::RadrootsListingEvent) {}
+}
+
 use crate::{
     domain::indexer::{
         kind::IndexerEventKind,
@@ -78,6 +89,7 @@ pub async fn run(settings: Settings) -> Result<()> {
         let mut records_kind: HashMap<IndexerEventKind, Vec<RelayIndexerEvent>> = HashMap::new();
         for rec in records.into_iter() {
             let iev = RelayIndexerEvent::try_from(rec)?;
+            audit::log_indexer_event(&iev);
             records_kind.entry(iev.kind).or_default().push(iev);
         }
 

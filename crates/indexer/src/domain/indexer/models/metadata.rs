@@ -9,6 +9,7 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 
 use crate::{
+    audit,
     domain::{
         events::ToRadrootsMetadataEvent,
         indexer::{
@@ -68,6 +69,7 @@ impl EventIndexes for EventMetadataIndexes {
         for raw in raw_events {
             match raw.clone().to_radroots_metadata_event() {
                 Ok(evt) => {
+                    audit::log_metadata_event(&evt);
                     let id = evt.event.id.clone();
                     let author = evt.event.author.clone();
                     events.push(evt.clone());

@@ -11,6 +11,7 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 
 use crate::{
+    audit,
     domain::{
         events::ToRadrootsListingEvent,
         indexer::{
@@ -69,6 +70,7 @@ impl EventIndexes for EventListingIndexes {
         for raw in raw_events {
             match raw.clone().to_radroots_listing_event() {
                 Ok(evt) => {
+                    audit::log_listing_event(&evt);
                     let id = evt.event.id.clone();
                     let country_code = evt.data.location_country.to_lowercase();
 
