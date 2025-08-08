@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { PUBLIC_RADROOTS_MARKET_RELAY_URL } from "$env/static/public";
+    import { idb } from "$lib/utils/app/storage";
     import { init_theme } from "$lib/utils/app/theme";
-    import { ndk } from "@radroots/apps-lib";
+    import { ndk, ndk_global } from "@radroots/apps-lib";
     import { onMount, type Snippet } from "svelte";
     import "../app.css";
 
@@ -10,12 +10,18 @@
     onMount(async () => {
         await init_theme();
 
-        $ndk.addExplicitRelay(PUBLIC_RADROOTS_MARKET_RELAY_URL);
-
-        $ndk.autoConnectUserRelays = true;
-        $ndk.autoFetchUserMutelist = true;
-
         await $ndk.connect();
+        console.log(`[ndk] connected`);
+
+        const global_relays = await idb.read_global("global_relays");
+        if (!global_relays) {
+            console.log(`[ndk_global] no global relays added`);
+        } else {
+            $ndk_global.explicitRelayUrls = global_relays;
+        }
+
+        await $ndk_global.connect();
+        console.log(`[ndk_global] connected`);
     });
 </script>
 

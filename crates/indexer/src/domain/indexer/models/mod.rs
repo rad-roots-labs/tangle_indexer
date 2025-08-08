@@ -1,12 +1,13 @@
-pub use metadata::Event0StaticIndexes;
+pub mod listing;
+pub mod metadata;
+
+pub use listing::EventListingIndexes;
+pub use metadata::EventMetadataIndexes;
 
 use crate::{config::Settings, domain::indexer::IndexerKey};
 use anyhow::Result;
-use serde_json::Value;
 use std::path::PathBuf;
 use thiserror::Error;
-
-pub mod metadata;
 
 #[derive(Debug, Error)]
 pub enum NostrEventsStaticError {
@@ -22,8 +23,6 @@ pub trait EventIndexes {
     fn build(events: &[Self::Event]) -> Result<Self, NostrEventsStaticError>
     where
         Self: Sized;
-
-    fn index_json(&self, subdir: IndexerKey) -> Option<Value>;
 }
 
 pub trait WriteEventIndexes {

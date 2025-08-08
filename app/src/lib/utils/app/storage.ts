@@ -4,6 +4,7 @@ export type GlobalConfig = {
     theme_mode: ThemeMode;
     theme_key: string;
     locale: string;
+    global_relays: string[];
     npub: string;
 };
 
@@ -16,6 +17,5 @@ export type PageSession = {
 };
 
 export type PageSessionKeys = keyof PageSession;
-
 
 export const idb = new IdbLib<GlobalConfigKeys, GlobalConfig, PageSessionKeys, PageSession>();

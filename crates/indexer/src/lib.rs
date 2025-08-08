@@ -23,7 +23,7 @@ pub mod relay {
 use crate::{
     domain::indexer::{
         kind::IndexerEventKind,
-        models::{Event0StaticIndexes, EventIndexes, WriteEventIndexes},
+        models::{EventIndexes, EventListingIndexes, EventMetadataIndexes, WriteEventIndexes},
     },
     relay::event::RelayIndexerEvent,
 };
@@ -31,9 +31,10 @@ pub use config::Settings;
 pub use relay::record::RelayEventRecord;
 
 pub async fn run(settings: Settings) -> Result<()> {
-    let db_idx = IndexerDb::open(&format!("{}/indexer_db", settings.service.output_dir))?;
+    let db_idx = IndexerDb::open(&format!("{}/indexer_db", settings.indexer.data_dir))?;
     let tree_raw = "hashes";
     let tree_events_metadata = "metadata_events";
+    let tree_events_listing = "listing_events";
     let tree_stats = "stats";
 
     let last_created_at_db: u32 = db_idx
@@ -109,7 +110,7 @@ pub async fn run(settings: Settings) -> Result<()> {
 
                 let raw_metadata_events: Vec<RelayIndexerEvent> =
                     db_idx.get_all(tree_events_metadata)?;
-                let indexed_metadata_events = Event0StaticIndexes::build(&raw_metadata_events)?;
+                let indexed_metadata_events = EventMetadataIndexes::build(&raw_metadata_events)?;
                 let mut updated_indexes = Vec::new();
                 indexed_metadata_events.write(&settings, &mut updated_indexes)?;
                 info!(
@@ -120,8 +121,46 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
+        if let Some(listing_events) = records_kind.remove(&IndexerEventKind::Listing) {
+            if !listing_events.is_empty() {
+                for ev in &listing_events {
+                    last_created_at = last_created_at.max(ev.created_at);
+                    let id = &ev.id;
+                    let hash = &ev.hash;
+                    let skip = if let Some(old) = db_idx.get_raw(tree_raw, id)? {
+                        old.as_ref() == hash.as_bytes()
+                    } else {
+                        false
+                    };
+                    if skip {
+                        continue;
+                    }
+                    db_idx.insert(tree_events_listing, id, ev)?;
+                    db_idx.insert_raw(tree_raw, id, hash.as_bytes())?;
+                }
+
+                db_idx.insert_raw(
+                    tree_stats,
+                    "last_created_at",
+                    &last_created_at.to_be_bytes(),
+                )?;
+                db_idx.flush()?;
+
+                let raw_listing_events: Vec<RelayIndexerEvent> =
+                    db_idx.get_all(tree_events_listing)?;
+                let listing_indexes = EventListingIndexes::build(&raw_listing_events)?;
+                let mut updated_listing = Vec::new();
+                listing_indexes.write(&settings, &mut updated_listing)?;
+                info!(
+                    written = updated_listing.len(),
+                    "Written {} listing index files",
+                    updated_listing.len()
+                );
+            }
+        }
+
         let elapsed = iteration_start.elapsed();
-        let interval = Duration::from_secs(settings.service.flush_interval);
+        let interval = Duration::from_secs(settings.indexer.flush_interval);
         let delay = interval.saturating_sub(elapsed);
         info!(
             elapsed_ms = elapsed.as_millis(),

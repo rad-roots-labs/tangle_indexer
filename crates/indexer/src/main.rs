@@ -17,7 +17,7 @@ async fn setup() -> Result<()> {
 
     let settings = Settings::load(&args.config)?;
 
-    telemetry::init(&settings.service.logs_dir);
+    telemetry::init(&settings.indexer.logs_dir);
     info!("Service starting");
 
     run(settings).await

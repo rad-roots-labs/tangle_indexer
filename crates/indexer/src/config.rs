@@ -12,22 +12,28 @@ pub enum SettingsError {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Indexer {
+    pub data_dir: String,
+    pub logs_dir: String,
+    pub flush_interval: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Relay {
     pub url: String,
     pub database_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Service {
-    pub output_dir: String,
-    pub logs_dir: String,
-    pub flush_interval: u64,
+pub struct Listings {
+    pub country_shard_size: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
+    pub indexer: Indexer,
     pub relay: Relay,
-    pub service: Service,
+    pub listings: Listings,
 }
 
 impl Settings {

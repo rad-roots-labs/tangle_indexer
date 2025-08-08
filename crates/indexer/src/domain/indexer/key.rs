@@ -4,7 +4,7 @@ pub enum IndexerKey {
     Author,
     Nip05,
     Npub,
-    Geohash,
+    Country,
 }
 
 impl IndexerKey {
@@ -14,7 +14,7 @@ impl IndexerKey {
             IndexerKey::Author => "author",
             IndexerKey::Nip05 => "nip05",
             IndexerKey::Npub => "npub",
-            IndexerKey::Geohash => "geohash",
+            IndexerKey::Country => "country",
         }
     }
 }
@@ -25,3 +25,5 @@ pub const METADATA_INDEX_DIRECTORY: [IndexerKey; 4] = [
     IndexerKey::Nip05,
     IndexerKey::Npub,
 ];
+
+pub const LISTING_INDEX_DIRECTORY: [IndexerKey; 2] = [IndexerKey::Id, IndexerKey::Country];

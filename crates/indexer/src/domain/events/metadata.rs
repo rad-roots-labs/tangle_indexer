@@ -67,19 +67,17 @@ impl ToRadrootsMetadataEvent for RelayIndexerEvent {
     ) -> Result<RadrootsMetadataEvent, RadrootsMetadataEventError> {
         let data = create_radroots_metadata_event_data(
             self.id.clone(),
-            self.pubkey.clone(),
+            self.author.clone(),
             self.content.clone(),
             self.tags.clone(),
         )?;
-
-        let kind = self.kind.as_u64();
 
         Ok(RadrootsMetadataEvent {
             event: RadrootsNostrEvent {
                 id: self.id,
                 author: self.author,
                 created_at: self.created_at,
-                kind: kind.try_into().unwrap(),
+                kind: self.kind.as_u64().try_into().unwrap(),
                 content: self.content,
                 tags: self.tags,
                 sig: self.sig,

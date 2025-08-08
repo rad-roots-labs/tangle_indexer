@@ -2,17 +2,15 @@ use indexer_utils::{
     file::fs_mkdir,
     logs::truncate_log,
     nostr::public_key_to_npub,
-    paths::paths_join,
     write::{compute_hash, write_hash, write_json},
 };
 use radroots_common::models::events::RadrootsMetadataEvent;
-use serde_json::Value;
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 
 use crate::{
     domain::{
-        events::metadata::ToRadrootsMetadataEvent,
+        events::ToRadrootsMetadataEvent,
         indexer::{
             kind::IndexerEventKind,
             models::{EventIndexes, NostrEventsStaticError, WriteEventIndexes},
@@ -44,7 +42,7 @@ macro_rules! write_if_stale {
 }
 
 #[derive(Debug)]
-pub struct Event0StaticIndexes {
+pub struct EventMetadataIndexes {
     events: Vec<RadrootsMetadataEvent>,
     events_id: BTreeMap<String, RadrootsMetadataEvent>,
     events_author: BTreeMap<String, RadrootsMetadataEvent>,
@@ -52,7 +50,7 @@ pub struct Event0StaticIndexes {
     events_npub: BTreeMap<String, RadrootsMetadataEvent>,
 }
 
-impl EventIndexes for Event0StaticIndexes {
+impl EventIndexes for EventMetadataIndexes {
     type Event = RelayIndexerEvent;
 
     fn subdirs() -> &'static [IndexerKey] {
@@ -98,7 +96,7 @@ impl EventIndexes for Event0StaticIndexes {
             }
         }
 
-        Ok(Event0StaticIndexes {
+        Ok(EventMetadataIndexes {
             events,
             events_id,
             events_author,
@@ -106,25 +104,11 @@ impl EventIndexes for Event0StaticIndexes {
             events_npub,
         })
     }
-
-    fn index_json(&self, subdir: IndexerKey) -> Option<Value> {
-        match subdir {
-            IndexerKey::Id => serde_json::to_value(&self.events_id).ok(),
-            IndexerKey::Author => serde_json::to_value(&self.events_author).ok(),
-            IndexerKey::Nip05 => serde_json::to_value(&self.events_nip05).ok(),
-            IndexerKey::Npub => serde_json::to_value(&self.events_npub).ok(),
-            _ => None,
-        }
-    }
 }
 
-impl WriteEventIndexes for Event0StaticIndexes {
+impl WriteEventIndexes for EventMetadataIndexes {
     fn write(&self, settings: &Settings, updated: &mut Vec<PathBuf>) -> anyhow::Result<()> {
-        let base = paths_join(&[
-            &settings.service.output_dir,
-            "events",
-            &IndexerEventKind::Metadata.as_u64().to_string(),
-        ])?;
+        let base: PathBuf = IndexerEventKind::Metadata.base_path(&settings.indexer.data_dir)?;
         fs_mkdir(&[&base])?;
 
         let idxs_root = base.join("events.json");
