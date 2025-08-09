@@ -12,7 +12,7 @@
 
     $ndk.subscribe(
         {
-            kinds: [NDKKind.Metadata],
+            kinds: [NDKKind.Metadata, NDKKind.Classified],
             authors: [basis.index.public_key],
         },
         undefined,
@@ -36,9 +36,9 @@
 
     const head_title = $derived(
         `${
-            basis.index.metadata_event.metadata.display_name ||
-            basis.index.metadata_event.metadata.name
-        } (@${basis.index.metadata_event.metadata.name}) ${head_title_suffix}`,
+            basis.index.events.metadata.metadata.display_name ||
+            basis.index.events.metadata.metadata.name
+        } (@${basis.index.events.metadata.metadata.name}) ${head_title_suffix}`,
     );
 </script>
 
@@ -53,7 +53,7 @@
 
 <div class={`flex flex-col w-full gap-12 justify-start items-start`}>
     <div class={`flex flex-col w-full gap-4 justify-start items-start`}>
-        {#each Object.entries(basis.index.metadata_event) as [k, v]}
+        {#each Object.entries(basis.index.events.metadata) as [k, v]}
             <div class={`flex flex-col w-full gap-2 justify-start items-start`}>
                 <p class={`font-sans font-[400] text-base text-ly0-gl`}>
                     {k}
@@ -66,6 +66,18 @@
             </div>
         {/each}
     </div>
+    {#if `listings` in basis.index.events}
+        <div class={`flex flex-col w-full gap-4 justify-start items-start`}>
+            {#each basis.index.events.listings as listing_event}
+                <div
+                    class={`flex flex-col w-full gap-2 justify-start items-start break-all`}
+                >
+                    {JSON.stringify(listing_event)}
+                </div>
+            {/each}
+        </div>
+    {/if}
+
     <div class={`flex flex-col w-full gap-4 justify-start items-start`}>
         {#each ndk_events as ndk_event}
             <div

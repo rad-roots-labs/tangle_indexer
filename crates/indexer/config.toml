@@ -9,3 +9,4 @@ db_path = "data/nostr-rs-relay/nostr.db"
 
 [listings]
 country_shard_size = 1000
+profile_shard_size = 200

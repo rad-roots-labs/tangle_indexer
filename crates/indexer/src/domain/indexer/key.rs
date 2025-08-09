@@ -26,4 +26,10 @@ pub const METADATA_INDEX_DIRECTORY: [IndexerKey; 4] = [
     IndexerKey::Npub,
 ];
 
-pub const LISTING_INDEX_DIRECTORY: [IndexerKey; 2] = [IndexerKey::Id, IndexerKey::Country];
+pub const LISTING_INDEX_DIRECTORY: [IndexerKey; 5] = [
+    IndexerKey::Id,
+    IndexerKey::Country,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];

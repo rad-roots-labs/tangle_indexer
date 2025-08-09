@@ -27,6 +27,7 @@ pub struct Relay {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Listings {
     pub country_shard_size: usize,
+    pub profile_shard_size: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

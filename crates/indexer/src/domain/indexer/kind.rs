@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::path::PathBuf;
 
+use crate::domain::indexer::key::LISTING_INDEX_DIRECTORY;
 use crate::domain::indexer::{IndexerKey, METADATA_INDEX_DIRECTORY};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -25,7 +26,7 @@ impl IndexerEventKind {
     pub const fn paths(self) -> &'static [IndexerKey] {
         match self {
             IndexerEventKind::Metadata => &METADATA_INDEX_DIRECTORY,
-            IndexerEventKind::Listing => &METADATA_INDEX_DIRECTORY,
+            IndexerEventKind::Listing => &LISTING_INDEX_DIRECTORY,
         }
     }
 

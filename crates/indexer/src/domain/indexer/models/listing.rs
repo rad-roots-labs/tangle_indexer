@@ -1,11 +1,12 @@
 use indexer_utils::{
     file::fs_mkdir,
     logs::truncate_log,
+    nostr::public_key_to_npub,
     write::{compute_hash, write_hash, write_json},
 };
 use radroots_common::models::{
     events::{RadrootsListingEvent, RadrootsListingEventData},
-    indexer::{RadrootsListingIndexCountryManifest, RadrootsListingIndexShardMetadata},
+    indexer::{RadrootsIndexManifest, RadrootsIndexShardMetadata},
 };
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
@@ -20,6 +21,7 @@ use crate::{
             models::{EventIndexes, NostrEventsStaticError, WriteEventIndexes},
             IndexerKey,
         },
+        resolvers::profile::ProfileResolver,
     },
     relay::event::RelayIndexerEvent,
     Settings,
@@ -52,32 +54,48 @@ pub struct EventListingIndexes {
     events: Vec<RadrootsListingEvent>,
     events_id: BTreeMap<String, RadrootsListingEvent>,
     country_ids: BTreeMap<String, Vec<String>>,
+    author_ids: BTreeMap<String, Vec<String>>,
+    npub_ids: BTreeMap<String, Vec<String>>,
+    nip05_ids: BTreeMap<String, Vec<String>>,
 }
 
-impl EventIndexes for EventListingIndexes {
-    type Event = RelayIndexerEvent;
-
-    fn subdirs() -> &'static [IndexerKey] {
-        &LISTING_INDEX_DIRECTORY
-    }
-
-    #[instrument(skip(raw_events), fields(event_count = raw_events.len()))]
-    fn build(raw_events: &[Self::Event]) -> Result<Self, NostrEventsStaticError> {
+impl EventListingIndexes {
+    pub fn build_with_profiles(
+        raw_events: &[RelayIndexerEvent],
+        profiles: &ProfileResolver,
+    ) -> Result<Self, NostrEventsStaticError> {
         let mut events: Vec<RadrootsListingEvent> = Vec::with_capacity(raw_events.len());
         let mut events_id: BTreeMap<String, RadrootsListingEvent> = BTreeMap::new();
         let mut country_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut author_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut npub_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut nip05_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
         for raw in raw_events {
             match raw.clone().to_radroots_listing_event() {
                 Ok(evt) => {
                     audit::log_listing_event(&evt);
+
                     let id = evt.event.id.clone();
-                    let country_code = evt.data.location_country.to_lowercase();
+                    let author = evt.event.author.to_lowercase();
+
+                    let npub = public_key_to_npub(&author).map(|s| s.to_lowercase()).ok();
+                    let author_nip05 = profiles.nip05_for_author(&author).map(str::to_owned);
+
+                    let country = evt.data.location_country.to_lowercase();
 
                     events_id.insert(id.clone(), evt.clone());
                     events.push(evt.clone());
 
-                    country_ids.entry(country_code).or_default().push(id);
+                    country_ids.entry(country).or_default().push(id.clone());
+                    author_ids.entry(author).or_default().push(id.clone());
+
+                    if let Some(n) = npub {
+                        npub_ids.entry(n).or_default().push(id.clone());
+                    }
+                    if let Some(n05) = author_nip05 {
+                        nip05_ids.entry(n05).or_default().push(id.clone());
+                    }
                 }
                 Err(err) => {
                     warn!(
@@ -93,7 +111,24 @@ impl EventIndexes for EventListingIndexes {
             }
         }
 
-        for (_cc, ids) in country_ids.iter_mut() {
+        let sort_ids = |ids: &mut Vec<String>, map: &BTreeMap<String, RadrootsListingEvent>| {
+            ids.sort_unstable_by(|a, b| {
+                let pa = map.get(a).map(|e| e.data.published_at).unwrap_or_default();
+                let pb = map.get(b).map(|e| e.data.published_at).unwrap_or_default();
+                pb.cmp(&pa).then(a.cmp(b))
+            });
+        };
+
+        for ids in country_ids.values_mut() {
+            sort_ids(ids, &events_id);
+        }
+        for ids in author_ids.values_mut() {
+            sort_ids(ids, &events_id);
+        }
+        for ids in npub_ids.values_mut() {
+            sort_ids(ids, &events_id);
+        }
+        for ids in nip05_ids.values_mut() {
             ids.sort_unstable_by(|a, b| {
                 let pa = events_id
                     .get(a)
@@ -103,7 +138,6 @@ impl EventIndexes for EventListingIndexes {
                     .get(b)
                     .map(|e| e.data.published_at)
                     .unwrap_or_default();
-
                 pb.cmp(&pa).then(a.cmp(b))
             });
         }
@@ -112,7 +146,24 @@ impl EventIndexes for EventListingIndexes {
             events,
             events_id,
             country_ids,
+            author_ids,
+            npub_ids,
+            nip05_ids,
         })
+    }
+}
+
+impl EventIndexes for EventListingIndexes {
+    type Event = RelayIndexerEvent;
+
+    fn subdirs() -> &'static [IndexerKey] {
+        &LISTING_INDEX_DIRECTORY
+    }
+
+    #[instrument(skip(raw_events), fields(event_count = raw_events.len()))]
+    fn build(raw_events: &[Self::Event]) -> Result<Self, NostrEventsStaticError> {
+        let empty = ProfileResolver::default();
+        Self::build_with_profiles(raw_events, &empty)
     }
 }
 
@@ -191,7 +242,7 @@ impl WriteEventIndexes for EventListingIndexes {
                         (0, 0)
                     };
 
-                let mut manifest = RadrootsListingIndexCountryManifest {
+                let mut manifest = RadrootsIndexManifest {
                     country: cc.clone(),
                     total: u32::try_from(data_items.len()).expect("too many data items for u32"),
                     shard_size: u32::try_from(shard_size).expect("shard_size too large for u32"),
@@ -226,7 +277,7 @@ impl WriteEventIndexes for EventListingIndexes {
                         (fp.0, fp.1, lp.0, lp.1)
                     };
 
-                    manifest.shards.push(RadrootsListingIndexShardMetadata {
+                    manifest.shards.push(RadrootsIndexShardMetadata {
                         file: file_rel,
                         count: u32::try_from(chunk.len()).expect("chunk length too large for u32"),
                         first_id,
@@ -238,6 +289,262 @@ impl WriteEventIndexes for EventListingIndexes {
                 }
 
                 write_if_stale!(cc_dir.join("manifest.json"), manifest, updated);
+            }
+        }
+
+        {
+            let sub_author = base.join(IndexerKey::Author.as_str());
+            fs_mkdir(&[&sub_author])?;
+            let authors: Vec<String> = self.author_ids.keys().cloned().collect();
+            write_if_stale!(sub_author.join("indexes.json"), authors, updated);
+
+            for (author, ids) in &self.author_ids {
+                let dir = sub_author.join(author);
+                let shards_dir = dir.join("shards");
+                fs_mkdir(&[&dir, &shards_dir])?;
+
+                let mut data_items: Vec<RadrootsListingEventData> = Vec::with_capacity(ids.len());
+                for id in ids {
+                    if let Some(evt) = self.events_id.get(id) {
+                        data_items.push(evt.data.clone());
+                    }
+                }
+
+                let shard_size = settings.listings.profile_shard_size;
+                let shards = Self::shard_vec(&data_items, shard_size);
+
+                let (first_pub, last_pub) =
+                    if let (Some(f), Some(l)) = (data_items.first(), data_items.last()) {
+                        (f.published_at, l.published_at)
+                    } else {
+                        (0, 0)
+                    };
+
+                let mut manifest = RadrootsIndexManifest {
+                    country: author.clone(),
+                    total: u32::try_from(data_items.len()).expect("too many data items for u32"),
+                    shard_size: u32::try_from(shard_size).expect("shard_size too large for u32"),
+                    first_published_at: first_pub,
+                    last_published_at: last_pub,
+                    shards: Vec::with_capacity(shards.len()),
+                };
+
+                for (ix, chunk) in shards.into_iter().enumerate() {
+                    let file_rel = Self::format_shard_filename(ix);
+                    let file_abs = dir.join(&file_rel);
+                    if let Some(parent) = file_abs.parent() {
+                        fs_mkdir(&[&parent])?;
+                    }
+
+                    let sha = write_if_stale!(file_abs, chunk, updated);
+
+                    let (first_id, first_published_at, last_id, last_published_at) =
+                        if let (Some(f), Some(l)) = (
+                            data_items.get(ix * shard_size),
+                            data_items.get(((ix + 1) * shard_size).saturating_sub(1)),
+                        ) {
+                            (f.id.clone(), f.published_at, l.id.clone(), l.published_at)
+                        } else {
+                            let fp = data_items
+                                .get(ix * shard_size)
+                                .map(|x| (x.id.clone(), x.published_at))
+                                .or_else(|| chunk.first().map(|x| (x.id.clone(), x.published_at)))
+                                .unwrap_or_default();
+
+                            let lp = data_items
+                                .get(((ix + 1) * shard_size).saturating_sub(1))
+                                .map(|x| (x.id.clone(), x.published_at))
+                                .or_else(|| chunk.last().map(|x| (x.id.clone(), x.published_at)))
+                                .unwrap_or_default();
+
+                            (fp.0, fp.1, lp.0, lp.1)
+                        };
+
+                    manifest.shards.push(RadrootsIndexShardMetadata {
+                        file: file_rel,
+                        count: u32::try_from(std::cmp::min(
+                            shard_size,
+                            data_items.len().saturating_sub(ix * shard_size),
+                        ))
+                        .expect("chunk length too large for u32"),
+                        first_id,
+                        last_id,
+                        first_published_at,
+                        last_published_at,
+                        sha256: sha,
+                    });
+                }
+
+                write_if_stale!(dir.join("manifest.json"), manifest, updated);
+            }
+        }
+
+        {
+            let sub_npub = base.join(IndexerKey::Npub.as_str());
+            fs_mkdir(&[&sub_npub])?;
+            let npubs: Vec<String> = self.npub_ids.keys().cloned().collect();
+            write_if_stale!(sub_npub.join("indexes.json"), npubs, updated);
+
+            for (npub, ids) in &self.npub_ids {
+                let dir = sub_npub.join(npub);
+                let shards_dir = dir.join("shards");
+                fs_mkdir(&[&dir, &shards_dir])?;
+
+                let mut data_items: Vec<RadrootsListingEventData> = Vec::with_capacity(ids.len());
+                for id in ids {
+                    if let Some(evt) = self.events_id.get(id) {
+                        data_items.push(evt.data.clone());
+                    }
+                }
+
+                let shard_size = settings.listings.profile_shard_size;
+                let shards = Self::shard_vec(&data_items, shard_size);
+
+                let (first_pub, last_pub) =
+                    if let (Some(f), Some(l)) = (data_items.first(), data_items.last()) {
+                        (f.published_at, l.published_at)
+                    } else {
+                        (0, 0)
+                    };
+
+                let mut manifest = RadrootsIndexManifest {
+                    country: npub.clone(),
+                    total: u32::try_from(data_items.len()).expect("too many data items for u32"),
+                    shard_size: u32::try_from(shard_size).expect("shard_size too large for u32"),
+                    first_published_at: first_pub,
+                    last_published_at: last_pub,
+                    shards: Vec::with_capacity(shards.len()),
+                };
+
+                for (ix, chunk) in shards.into_iter().enumerate() {
+                    let file_rel = Self::format_shard_filename(ix);
+                    let file_abs = dir.join(&file_rel);
+                    if let Some(parent) = file_abs.parent() {
+                        fs_mkdir(&[&parent])?;
+                    }
+
+                    let sha = write_if_stale!(file_abs, chunk, updated);
+
+                    let (first_id, first_published_at, last_id, last_published_at) =
+                        if let (Some(f), Some(l)) = (
+                            data_items.get(ix * shard_size),
+                            data_items.get(((ix + 1) * shard_size).saturating_sub(1)),
+                        ) {
+                            (f.id.clone(), f.published_at, l.id.clone(), l.published_at)
+                        } else {
+                            let fp = data_items
+                                .get(ix * shard_size)
+                                .map(|x| (x.id.clone(), x.published_at))
+                                .or_else(|| chunk.first().map(|x| (x.id.clone(), x.published_at)))
+                                .unwrap_or_default();
+
+                            let lp = data_items
+                                .get(((ix + 1) * shard_size).saturating_sub(1))
+                                .map(|x| (x.id.clone(), x.published_at))
+                                .or_else(|| chunk.last().map(|x| (x.id.clone(), x.published_at)))
+                                .unwrap_or_default();
+
+                            (fp.0, fp.1, lp.0, lp.1)
+                        };
+
+                    manifest.shards.push(RadrootsIndexShardMetadata {
+                        file: file_rel,
+                        count: u32::try_from(std::cmp::min(
+                            shard_size,
+                            data_items.len().saturating_sub(ix * shard_size),
+                        ))
+                        .expect("chunk length too large for u32"),
+                        first_id,
+                        last_id,
+                        first_published_at,
+                        last_published_at,
+                        sha256: sha,
+                    });
+                }
+
+                write_if_stale!(dir.join("manifest.json"), manifest, updated);
+            }
+
+            {
+                let sub_nip05 = base.join(IndexerKey::Nip05.as_str());
+                fs_mkdir(&[&sub_nip05])?;
+                let names: Vec<String> = self.nip05_ids.keys().cloned().collect();
+                write_if_stale!(sub_nip05.join("indexes.json"), names, updated);
+
+                for (name, ids) in &self.nip05_ids {
+                    let dir = sub_nip05.join(name);
+                    let shards_dir = dir.join("shards");
+                    fs_mkdir(&[&dir, &shards_dir])?;
+
+                    let mut data_items = Vec::with_capacity(ids.len());
+                    for id in ids {
+                        if let Some(evt) = self.events_id.get(id) {
+                            data_items.push(evt.data.clone());
+                        }
+                    }
+
+                    let shard_size = settings.listings.profile_shard_size;
+                    let shards = Self::shard_vec(&data_items, shard_size);
+
+                    let (first_pub, last_pub) =
+                        if let (Some(f), Some(l)) = (data_items.first(), data_items.last()) {
+                            (f.published_at, l.published_at)
+                        } else {
+                            (0, 0)
+                        };
+
+                    let mut manifest = RadrootsIndexManifest {
+                        country: name.clone(),
+                        total: u32::try_from(data_items.len()).expect("u32 overflow"),
+                        shard_size: u32::try_from(shard_size).expect("u32 overflow"),
+                        first_published_at: first_pub,
+                        last_published_at: last_pub,
+                        shards: Vec::with_capacity(shards.len()),
+                    };
+
+                    for (ix, chunk) in shards.into_iter().enumerate() {
+                        let file_rel = Self::format_shard_filename(ix);
+                        let file_abs = dir.join(&file_rel);
+                        if let Some(parent) = file_abs.parent() {
+                            fs_mkdir(&[&parent])?;
+                        }
+
+                        let sha = write_if_stale!(file_abs, chunk, updated);
+
+                        let (first_id, first_pub, last_id, last_pub) = if let (Some(f), Some(l)) = (
+                            data_items.get(ix * shard_size),
+                            data_items.get(((ix + 1) * shard_size).saturating_sub(1)),
+                        ) {
+                            (f.id.clone(), f.published_at, l.id.clone(), l.published_at)
+                        } else {
+                            let fp = chunk
+                                .first()
+                                .map(|x| (x.id.clone(), x.published_at))
+                                .unwrap_or_default();
+                            let lp = chunk
+                                .last()
+                                .map(|x| (x.id.clone(), x.published_at))
+                                .unwrap_or_default();
+                            (fp.0, fp.1, lp.0, lp.1)
+                        };
+
+                        manifest.shards.push(RadrootsIndexShardMetadata {
+                            file: file_rel,
+                            count: u32::try_from(std::cmp::min(
+                                shard_size,
+                                data_items.len().saturating_sub(ix * shard_size),
+                            ))
+                            .expect("u32 overflow"),
+                            first_id,
+                            last_id,
+                            first_published_at: first_pub,
+                            last_published_at: last_pub,
+                            sha256: sha,
+                        });
+                    }
+
+                    write_if_stale!(dir.join("manifest.json"), manifest, updated);
+                }
             }
         }
 

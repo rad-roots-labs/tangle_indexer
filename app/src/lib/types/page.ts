@@ -1,7 +1,17 @@
-import type { RadrootsMetadataEventData } from "@radroots/radroots-common-bindings";
+import type { RadrootsListingEventData, RadrootsMetadataEventData } from "@radroots/radroots-common-bindings";
 
 export type PageLoadProfileData = {
     public_key: string;
     npub?: string;
-    metadata_event: RadrootsMetadataEventData;
-}
+    events: PageLoadProfileDataEvents;
+};
+
+export type PageLoadProfileDataEvents =
+    (
+        {
+            metadata: RadrootsMetadataEventData;
+        } | {
+            metadata: RadrootsMetadataEventData;
+            listings: RadrootsListingEventData[];
+        }
+    );

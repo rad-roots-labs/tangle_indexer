@@ -15,6 +15,7 @@ pub mod telemetry;
 pub mod domain {
     pub mod events;
     pub mod indexer;
+    pub mod resolvers;
 }
 pub mod relay {
     pub mod event;
@@ -32,9 +33,12 @@ pub mod audit {
 }
 
 use crate::{
-    domain::indexer::{
-        kind::IndexerEventKind,
-        models::{EventIndexes, EventListingIndexes, EventMetadataIndexes, WriteEventIndexes},
+    domain::{
+        indexer::{
+            kind::IndexerEventKind,
+            models::{EventIndexes, EventListingIndexes, EventMetadataIndexes, WriteEventIndexes},
+        },
+        resolvers::profile::ProfileResolver,
     },
     relay::event::RelayIndexerEvent,
 };
@@ -93,6 +97,8 @@ pub async fn run(settings: Settings) -> Result<()> {
             records_kind.entry(iev.kind).or_default().push(iev);
         }
 
+        let mut need_rebuild_listing = false;
+
         if let Some(metadata_events) = records_kind.remove(&IndexerEventKind::Metadata) {
             if !metadata_events.is_empty() {
                 for ev in &metadata_events {
@@ -130,8 +136,13 @@ pub async fn run(settings: Settings) -> Result<()> {
                     "Written {} index files",
                     updated_indexes.len()
                 );
+
+                need_rebuild_listing = true;
             }
         }
+
+        let raw_metadata_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_metadata)?;
+        let profiles = ProfileResolver::from_metadata(&raw_metadata_events);
 
         if let Some(listing_events) = records_kind.remove(&IndexerEventKind::Listing) {
             if !listing_events.is_empty() {
@@ -168,7 +179,22 @@ pub async fn run(settings: Settings) -> Result<()> {
                     "Written {} listing index files",
                     updated_listing.len()
                 );
+
+                need_rebuild_listing = true;
             }
+        }
+
+        if need_rebuild_listing {
+            let raw_listing_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_listing)?;
+            let listing_indexes =
+                EventListingIndexes::build_with_profiles(&raw_listing_events, &profiles)?;
+            let mut updated_listing = Vec::new();
+            listing_indexes.write(&settings, &mut updated_listing)?;
+            info!(
+                written = updated_listing.len(),
+                "Written {} listing index files",
+                updated_listing.len()
+            );
         }
 
         let elapsed = iteration_start.elapsed();

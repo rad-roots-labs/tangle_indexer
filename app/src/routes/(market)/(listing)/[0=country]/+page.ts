@@ -1,5 +1,5 @@
 import { PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL } from "$env/static/public";
-import type { RadrootsListingEventData, RadrootsListingIndexCountryManifest } from "@radroots/radroots-common-bindings";
+import type { RadrootsIndexManifest, RadrootsListingEventData } from "@radroots/radroots-common-bindings";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
 
@@ -16,7 +16,7 @@ export const entries: EntryGenerator = async () => {
 
 type PageLoadData = {
     country: string;
-    manifest: RadrootsListingIndexCountryManifest;
+    manifest: RadrootsIndexManifest;
     events: RadrootsListingEventData[];
 };
 
@@ -31,7 +31,7 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
 
     if (!res_country_manifest.ok) error(404, { message: `country:${country}` });
 
-    const manifest: RadrootsListingIndexCountryManifest = await res_country_manifest.json();
+    const manifest: RadrootsIndexManifest = await res_country_manifest.json();
 
     let events: RadrootsListingEventData[] = [];
     if (manifest.shards.length > 0) {

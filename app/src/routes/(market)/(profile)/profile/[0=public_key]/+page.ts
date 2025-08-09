@@ -36,7 +36,9 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     const data: PageLoadData = {
         public_key,
         npub,
-        metadata_event
+        events: {
+            metadata: metadata_event
+        }
     }
 
     return data;
