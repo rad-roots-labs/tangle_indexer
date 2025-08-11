@@ -1,8 +1,10 @@
-import { PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL } from "$env/static/public";
-import type { PageLoadProfileData } from "$lib/types/page";
-import type { RadrootsMetadataEventData } from "@radroots/radroots-common-bindings";
+import { _env } from "$lib/utils/_env";
+import type { PageLoadProfileData } from "@radroots/apps-lib-market";
+import type { RadrootsProfileEventMetadata } from "@radroots/radroots-common-bindings";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
+
+const { RADROOTS_MARKET_RELAY_INDEXES_URL: indexes_url } = _env;
 
 export const entries: EntryGenerator = async () => {
     const [
@@ -10,7 +12,7 @@ export const entries: EntryGenerator = async () => {
     ]: [
             string[]
         ] = await Promise.all([
-            fetch(`${PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL}/events/0/npub/indexes.json`).then(r => r.json())
+            fetch(`${indexes_url}/events/0/npub/indexes.json`).then(r => r.json())
         ]);
     return events_0_author_indexes.map(i => ({ 0: i }))
 };
@@ -23,20 +25,20 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     const [
         res_npub_metadata,
     ] = await Promise.all([
-        fetch(`${PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL}/events/0/npub/${npub}/metadata.json`)
+        fetch(`${indexes_url}/events/0/npub/${npub}/metadata.json`)
     ]);
 
     if (!res_npub_metadata.ok) error(404, { message: `npub:${npub}` });
 
-    const metadata_event: RadrootsMetadataEventData = await res_npub_metadata.json();
+    const profile_event: RadrootsProfileEventMetadata = await res_npub_metadata.json();
 
-    const public_key = metadata_event.public_key;
+    const public_key = profile_event.author;
 
     const data: PageLoadData = {
         public_key,
         npub,
         events: {
-            metadata: metadata_event
+            profile: profile_event
         }
     }
     return data;

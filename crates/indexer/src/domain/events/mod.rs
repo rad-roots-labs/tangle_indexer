@@ -1,8 +1,8 @@
 pub mod listing;
-pub mod metadata;
+pub mod profile;
 
-pub use listing::ToRadrootsListingEvent;
-pub use metadata::ToRadrootsMetadataEvent;
+pub use listing::ToRadrootsListingEventIndex;
+pub use profile::ToRadrootsProfileEventIndex;
 
 #[macro_export]
 macro_rules! opt_required {

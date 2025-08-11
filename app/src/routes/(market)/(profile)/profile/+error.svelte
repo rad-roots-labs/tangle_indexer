@@ -1,11 +1,11 @@
 <script lang="ts">
     import { page } from "$app/state";
-    import type {
-        IProfileViewUnknownNip05,
-        IProfileViewUnknownNpub,
-        IProfileViewUnknownPublicKey,
-    } from "$lib/types/views/profile";
-    import Profile from "$lib/views/profile/profile.svelte";
+    import {
+        Profile,
+        type IProfileViewUnknownNip05,
+        type IProfileViewUnknownNpub,
+        type IProfileViewUnknownPublicKey,
+    } from "@radroots/apps-lib-market";
 
     $effect(() => {
         console.log(`page.error`, page.error);

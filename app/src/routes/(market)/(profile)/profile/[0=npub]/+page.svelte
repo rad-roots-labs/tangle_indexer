@@ -1,8 +1,8 @@
 <script lang="ts">
-    import Profile from "$lib/views/profile/profile.svelte";
+    import { Profile } from "@radroots/apps-lib-market";
     import type { PageProps } from "./$types";
 
     let { data }: PageProps = $props();
 </script>
 
-<Profile basis={{ index: data }} />
+<Profile basis={{ indexed: data }} />

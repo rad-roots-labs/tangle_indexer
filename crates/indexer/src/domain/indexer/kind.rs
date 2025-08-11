@@ -5,27 +5,27 @@ use std::fmt;
 use std::path::PathBuf;
 
 use crate::domain::indexer::key::LISTING_INDEX_DIRECTORY;
-use crate::domain::indexer::{IndexerKey, METADATA_INDEX_DIRECTORY};
+use crate::domain::indexer::{IndexerKey, PROFILE_INDEX_DIRECTORY};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IndexerEventKind {
-    Metadata,
+    Profile,
     Listing,
 }
 
 impl IndexerEventKind {
-    pub const ALL: [IndexerEventKind; 2] = [IndexerEventKind::Metadata, IndexerEventKind::Listing];
+    pub const ALL: [IndexerEventKind; 2] = [IndexerEventKind::Profile, IndexerEventKind::Listing];
 
     pub const fn as_u64(self) -> u64 {
         match self {
-            IndexerEventKind::Metadata => 0,
+            IndexerEventKind::Profile => 0,
             IndexerEventKind::Listing => 30402,
         }
     }
 
     pub const fn paths(self) -> &'static [IndexerKey] {
         match self {
-            IndexerEventKind::Metadata => &METADATA_INDEX_DIRECTORY,
+            IndexerEventKind::Profile => &PROFILE_INDEX_DIRECTORY,
             IndexerEventKind::Listing => &LISTING_INDEX_DIRECTORY,
         }
     }
@@ -75,7 +75,7 @@ impl TryFrom<u64> for IndexerEventKind {
 
     fn try_from(val: u64) -> Result<Self, Self::Error> {
         match val {
-            0 => Ok(IndexerEventKind::Metadata),
+            0 => Ok(IndexerEventKind::Profile),
             30402 => Ok(IndexerEventKind::Listing),
             other => Err(IndexerEventKindParseError(other)),
         }

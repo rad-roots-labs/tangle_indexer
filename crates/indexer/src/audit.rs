@@ -10,7 +10,8 @@ use tracing::info;
 
 use crate::domain::resolvers::profile::ProfileResolver;
 use crate::relay::event::RelayIndexerEvent;
-use radroots_common::models::events::{RadrootsListingEvent, RadrootsMetadataEvent};
+use radroots_common::events::listing::models::RadrootsListingEventIndex;
+use radroots_common::events::profile::models::RadrootsProfileEventIndex;
 
 #[derive(Clone, Debug)]
 pub struct AuditFilter {
@@ -272,10 +273,10 @@ pub fn log_indexer_event(idx: &RelayIndexerEvent) {
 }
 
 #[inline]
-pub fn log_metadata_event(evt: &RadrootsMetadataEvent) {
+pub fn log_profile_event(evt: &RadrootsProfileEventIndex) {
     let (nip05_full_opt, nip05_local_opt) = evt
-        .data
         .metadata
+        .profile
         .nip05
         .as_ref()
         .map(|n| {
@@ -321,7 +322,7 @@ pub fn log_metadata_event(evt: &RadrootsMetadataEvent) {
 }
 
 #[inline]
-pub fn log_listing_event(evt: &RadrootsListingEvent) {
+pub fn log_listing_event(evt: &RadrootsListingEventIndex) {
     let need_npub = STATE
         .read()
         .ok()

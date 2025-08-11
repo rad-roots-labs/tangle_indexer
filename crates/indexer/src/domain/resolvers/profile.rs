@@ -1,4 +1,4 @@
-use crate::domain::events::ToRadrootsMetadataEvent;
+use crate::domain::events::ToRadrootsProfileEventIndex;
 use crate::relay::event::RelayIndexerEvent;
 use std::collections::BTreeMap;
 
@@ -12,15 +12,15 @@ impl ProfileResolver {
         let mut latest: BTreeMap<String, (u32, String)> = BTreeMap::new();
 
         for raw in raw_metadata {
-            if let Ok(evt) = raw.clone().to_radroots_metadata_event() {
-                if let Some(n) = &evt.data.metadata.nip05 {
+            if let Ok(evt) = raw.clone().to_radroots_profile_event() {
+                if let Some(n) = &evt.metadata.profile.nip05 {
                     let normalized = n.replace("@radroots.market", "").to_lowercase();
                     if normalized.is_empty() {
                         continue;
                     }
 
                     let author = evt.event.author.to_lowercase();
-                    let ts = evt.data.published_at;
+                    let ts = evt.metadata.published_at;
                     match latest.get(&author) {
                         Some(&(old_ts, _)) if old_ts >= ts => {}
                         _ => {

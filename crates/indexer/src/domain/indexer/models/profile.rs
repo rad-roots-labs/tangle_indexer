@@ -4,18 +4,18 @@ use indexer_utils::{
     nostr::public_key_to_npub,
     write::{compute_hash, write_hash, write_json},
 };
-use radroots_common::models::events::RadrootsMetadataEvent;
+use radroots_common::events::profile::models::RadrootsProfileEventIndex;
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 
 use crate::{
     audit,
     domain::{
-        events::ToRadrootsMetadataEvent,
+        events::ToRadrootsProfileEventIndex,
         indexer::{
             kind::IndexerEventKind,
             models::{EventIndexes, NostrEventsStaticError, WriteEventIndexes},
-            IndexerKey, METADATA_INDEX_DIRECTORY,
+            IndexerKey, PROFILE_INDEX_DIRECTORY,
         },
     },
     relay::event::RelayIndexerEvent,
@@ -43,19 +43,19 @@ macro_rules! write_if_stale {
 }
 
 #[derive(Debug)]
-pub struct EventMetadataIndexes {
-    events: Vec<RadrootsMetadataEvent>,
-    events_id: BTreeMap<String, RadrootsMetadataEvent>,
-    events_author: BTreeMap<String, RadrootsMetadataEvent>,
-    events_nip05: BTreeMap<String, RadrootsMetadataEvent>,
-    events_npub: BTreeMap<String, RadrootsMetadataEvent>,
+pub struct EventProfileIndexes {
+    events: Vec<RadrootsProfileEventIndex>,
+    events_id: BTreeMap<String, RadrootsProfileEventIndex>,
+    events_author: BTreeMap<String, RadrootsProfileEventIndex>,
+    events_nip05: BTreeMap<String, RadrootsProfileEventIndex>,
+    events_npub: BTreeMap<String, RadrootsProfileEventIndex>,
 }
 
-impl EventIndexes for EventMetadataIndexes {
+impl EventIndexes for EventProfileIndexes {
     type Event = RelayIndexerEvent;
 
     fn subdirs() -> &'static [IndexerKey] {
-        &METADATA_INDEX_DIRECTORY
+        &PROFILE_INDEX_DIRECTORY
     }
 
     #[instrument(skip(raw_events), fields(event_count = raw_events.len()))]
@@ -67,9 +67,9 @@ impl EventIndexes for EventMetadataIndexes {
         let mut events_npub = BTreeMap::new();
 
         for raw in raw_events {
-            match raw.clone().to_radroots_metadata_event() {
+            match raw.clone().to_radroots_profile_event() {
                 Ok(evt) => {
-                    audit::log_metadata_event(&evt);
+                    audit::log_profile_event(&evt);
                     let id = evt.event.id.clone();
                     let author = evt.event.author.clone();
                     events.push(evt.clone());
@@ -79,7 +79,7 @@ impl EventIndexes for EventMetadataIndexes {
                     if let Ok(npub) = public_key_to_npub(&author) {
                         events_npub.insert(npub.to_lowercase(), evt.clone());
                     }
-                    if let Some(nip05) = &evt.data.metadata.nip05 {
+                    if let Some(nip05) = &evt.metadata.profile.nip05 {
                         let normalized = nip05.replace("@radroots.market", "");
                         events_nip05.insert(normalized, evt.clone());
                     }
@@ -98,7 +98,7 @@ impl EventIndexes for EventMetadataIndexes {
             }
         }
 
-        Ok(EventMetadataIndexes {
+        Ok(EventProfileIndexes {
             events,
             events_id,
             events_author,
@@ -108,9 +108,9 @@ impl EventIndexes for EventMetadataIndexes {
     }
 }
 
-impl WriteEventIndexes for EventMetadataIndexes {
+impl WriteEventIndexes for EventProfileIndexes {
     fn write(&self, settings: &Settings, updated: &mut Vec<PathBuf>) -> anyhow::Result<()> {
-        let base: PathBuf = IndexerEventKind::Metadata.base_path(&settings.indexer.data_dir)?;
+        let base: PathBuf = IndexerEventKind::Profile.base_path(&settings.indexer.data_dir)?;
         fs_mkdir(&[&base])?;
 
         let idxs_root = base.join("events.json");
@@ -141,7 +141,7 @@ impl WriteEventIndexes for EventMetadataIndexes {
                         let dir = sub_base.join(key.to_lowercase());
                         fs_mkdir(&[dir.to_str().unwrap()])?;
                         write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
-                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.metadata.clone(), updated);
                     }
                 }
                 IndexerKey::Author => {
@@ -149,7 +149,7 @@ impl WriteEventIndexes for EventMetadataIndexes {
                         let dir = sub_base.join(key.to_lowercase());
                         fs_mkdir(&[dir.to_str().unwrap()])?;
                         write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
-                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.metadata.clone(), updated);
                     }
                 }
                 IndexerKey::Nip05 => {
@@ -157,7 +157,7 @@ impl WriteEventIndexes for EventMetadataIndexes {
                         let dir = sub_base.join(key.to_lowercase());
                         fs_mkdir(&[dir.to_str().unwrap()])?;
                         write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
-                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.metadata.clone(), updated);
                     }
                 }
                 IndexerKey::Npub => {
@@ -165,7 +165,7 @@ impl WriteEventIndexes for EventMetadataIndexes {
                         let dir = sub_base.join(key.to_lowercase());
                         fs_mkdir(&[dir.to_str().unwrap()])?;
                         write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
-                        write_if_stale!(dir.join("metadata.json"), evt.data.clone(), updated);
+                        write_if_stale!(dir.join("metadata.json"), evt.metadata.clone(), updated);
                     }
                 }
                 _ => {}

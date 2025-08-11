@@ -30,6 +30,7 @@
 	},
 	"dependencies": {
 		"@radroots/apps-lib": "*",
+		"@radroots/apps-lib-market": "*",
 		"@radroots/utils-nostr": "*",
 		"@radroots/radroots-common-bindings": "*",
 		"@nostr-dev-kit/ndk": "2.14.33"

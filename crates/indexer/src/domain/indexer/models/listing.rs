@@ -4,9 +4,9 @@ use indexer_utils::{
     nostr::public_key_to_npub,
     write::{compute_hash, write_hash, write_json},
 };
-use radroots_common::models::{
-    events::{RadrootsListingEvent, RadrootsListingEventData},
-    indexer::{RadrootsIndexManifest, RadrootsIndexShardMetadata},
+use radroots_common::{
+    events::listing::models::{RadrootsListingEventIndex, RadrootsListingEventMetadata},
+    models::indexer::{RadrootsIndexManifest, RadrootsIndexShardMetadata},
 };
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
@@ -14,7 +14,7 @@ use tracing::{instrument, warn};
 use crate::{
     audit,
     domain::{
-        events::ToRadrootsListingEvent,
+        events::ToRadrootsListingEventIndex,
         indexer::{
             key::LISTING_INDEX_DIRECTORY,
             kind::IndexerEventKind,
@@ -51,8 +51,8 @@ macro_rules! write_if_stale {
 
 #[derive(Debug)]
 pub struct EventListingIndexes {
-    events: Vec<RadrootsListingEvent>,
-    events_id: BTreeMap<String, RadrootsListingEvent>,
+    events: Vec<RadrootsListingEventIndex>,
+    events_id: BTreeMap<String, RadrootsListingEventIndex>,
     country_ids: BTreeMap<String, Vec<String>>,
     author_ids: BTreeMap<String, Vec<String>>,
     npub_ids: BTreeMap<String, Vec<String>>,
@@ -64,8 +64,8 @@ impl EventListingIndexes {
         raw_events: &[RelayIndexerEvent],
         profiles: &ProfileResolver,
     ) -> Result<Self, NostrEventsStaticError> {
-        let mut events: Vec<RadrootsListingEvent> = Vec::with_capacity(raw_events.len());
-        let mut events_id: BTreeMap<String, RadrootsListingEvent> = BTreeMap::new();
+        let mut events: Vec<RadrootsListingEventIndex> = Vec::with_capacity(raw_events.len());
+        let mut events_id: BTreeMap<String, RadrootsListingEventIndex> = BTreeMap::new();
         let mut country_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut author_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut npub_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -76,24 +76,36 @@ impl EventListingIndexes {
                 Ok(evt) => {
                     audit::log_listing_event(&evt);
 
-                    let id = evt.event.id.clone();
-                    let author = evt.event.author.to_lowercase();
+                    let id = evt.metadata.id.clone();
+                    let author_hex = evt.metadata.author.to_lowercase();
 
-                    let npub = public_key_to_npub(&author).map(|s| s.to_lowercase()).ok();
-                    let author_nip05 = profiles.nip05_for_author(&author).map(str::to_owned);
+                    let npub = public_key_to_npub(&author_hex)
+                        .map(|s| s.to_lowercase())
+                        .ok();
+                    let author_nip05 = profiles.nip05_for_author(&author_hex).map(str::to_owned);
 
-                    let country = evt.data.location_country.to_lowercase();
+                    let country_opt = evt
+                        .metadata
+                        .listing
+                        .location
+                        .as_ref()
+                        .and_then(|loc| loc.country.as_ref())
+                        .map(|c| c.to_lowercase());
 
                     events_id.insert(id.clone(), evt.clone());
                     events.push(evt.clone());
 
-                    country_ids.entry(country).or_default().push(id.clone());
-                    author_ids.entry(author).or_default().push(id.clone());
+                    if let Some(country) = country_opt {
+                        country_ids.entry(country).or_default().push(id.clone());
+                    }
+
+                    author_ids.entry(author_hex).or_default().push(id.clone());
 
                     if let Some(n) = npub {
                         npub_ids.entry(n).or_default().push(id.clone());
                     }
                     if let Some(n05) = author_nip05 {
+                        let n05 = n05.to_lowercase();
                         nip05_ids.entry(n05).or_default().push(id.clone());
                     }
                 }
@@ -111,10 +123,17 @@ impl EventListingIndexes {
             }
         }
 
-        let sort_ids = |ids: &mut Vec<String>, map: &BTreeMap<String, RadrootsListingEvent>| {
+        let sort_ids = |ids: &mut Vec<String>,
+                        map: &BTreeMap<String, RadrootsListingEventIndex>| {
             ids.sort_unstable_by(|a, b| {
-                let pa = map.get(a).map(|e| e.data.published_at).unwrap_or_default();
-                let pb = map.get(b).map(|e| e.data.published_at).unwrap_or_default();
+                let pa = map
+                    .get(a)
+                    .map(|e| e.metadata.published_at)
+                    .unwrap_or_default();
+                let pb = map
+                    .get(b)
+                    .map(|e| e.metadata.published_at)
+                    .unwrap_or_default();
                 pb.cmp(&pa).then(a.cmp(b))
             });
         };
@@ -132,11 +151,11 @@ impl EventListingIndexes {
             ids.sort_unstable_by(|a, b| {
                 let pa = events_id
                     .get(a)
-                    .map(|e| e.data.published_at)
+                    .map(|e| e.metadata.published_at)
                     .unwrap_or_default();
                 let pb = events_id
                     .get(b)
-                    .map(|e| e.data.published_at)
+                    .map(|e| e.metadata.published_at)
                     .unwrap_or_default();
                 pb.cmp(&pa).then(a.cmp(b))
             });
@@ -208,7 +227,7 @@ impl WriteEventIndexes for EventListingIndexes {
                 let dir = sub.join(id.to_lowercase());
                 fs_mkdir(&[&dir])?;
                 write_if_stale!(dir.join("event.json"), evt.event.clone(), updated);
-                write_if_stale!(dir.join("data.json"), evt.data.clone(), updated);
+                write_if_stale!(dir.join("data.json"), evt.metadata.clone(), updated);
             }
         }
 
@@ -224,10 +243,11 @@ impl WriteEventIndexes for EventListingIndexes {
                 fs_mkdir(&[&cc_dir])?;
                 fs_mkdir(&[&shards_dir])?;
 
-                let mut data_items: Vec<RadrootsListingEventData> = Vec::with_capacity(ids.len());
+                let mut data_items: Vec<RadrootsListingEventMetadata> =
+                    Vec::with_capacity(ids.len());
                 for id in ids {
                     if let Some(evt) = self.events_id.get(id) {
-                        data_items.push(evt.data.clone());
+                        data_items.push(evt.metadata.clone());
                     }
                 }
 
@@ -303,10 +323,11 @@ impl WriteEventIndexes for EventListingIndexes {
                 let shards_dir = dir.join("shards");
                 fs_mkdir(&[&dir, &shards_dir])?;
 
-                let mut data_items: Vec<RadrootsListingEventData> = Vec::with_capacity(ids.len());
+                let mut data_items: Vec<RadrootsListingEventMetadata> =
+                    Vec::with_capacity(ids.len());
                 for id in ids {
                     if let Some(evt) = self.events_id.get(id) {
-                        data_items.push(evt.data.clone());
+                        data_items.push(evt.metadata.clone());
                     }
                 }
 
@@ -390,10 +411,11 @@ impl WriteEventIndexes for EventListingIndexes {
                 let shards_dir = dir.join("shards");
                 fs_mkdir(&[&dir, &shards_dir])?;
 
-                let mut data_items: Vec<RadrootsListingEventData> = Vec::with_capacity(ids.len());
+                let mut data_items: Vec<RadrootsListingEventMetadata> =
+                    Vec::with_capacity(ids.len());
                 for id in ids {
                     if let Some(evt) = self.events_id.get(id) {
-                        data_items.push(evt.data.clone());
+                        data_items.push(evt.metadata.clone());
                     }
                 }
 
@@ -479,7 +501,7 @@ impl WriteEventIndexes for EventListingIndexes {
                     let mut data_items = Vec::with_capacity(ids.len());
                     for id in ids {
                         if let Some(evt) = self.events_id.get(id) {
-                            data_items.push(evt.data.clone());
+                            data_items.push(evt.metadata.clone());
                         }
                     }
 

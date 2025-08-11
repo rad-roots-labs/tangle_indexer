@@ -27,16 +27,20 @@ pub mod audit;
 
 #[cfg(not(feature = "audit"))]
 pub mod audit {
+    use radroots_common::events::{
+        listing::models::RadrootsListingEventIndex, profile::models::RadrootsProfileEventIndex,
+    };
+
     pub fn log_indexer_event(_: &crate::relay::event::RelayIndexerEvent) {}
-    pub fn log_metadata_event(_: &radroots_common::models::events::RadrootsMetadataEvent) {}
-    pub fn log_listing_event(_: &radroots_common::models::events::RadrootsListingEvent) {}
+    pub fn log_profile_event(_: &RadrootsProfileEventIndex) {}
+    pub fn log_listing_event(_: &RadrootsListingEventIndex) {}
 }
 
 use crate::{
     domain::{
         indexer::{
             kind::IndexerEventKind,
-            models::{EventIndexes, EventListingIndexes, EventMetadataIndexes, WriteEventIndexes},
+            models::{EventIndexes, EventListingIndexes, EventProfileIndexes, WriteEventIndexes},
         },
         resolvers::profile::ProfileResolver,
     },
@@ -48,7 +52,7 @@ pub use relay::record::RelayEventRecord;
 pub async fn run(settings: Settings) -> Result<()> {
     let db_idx = IndexerDb::open(&format!("{}/indexer_db", settings.indexer.data_dir))?;
     let tree_raw = "hashes";
-    let tree_events_metadata = "metadata_events";
+    let tree_events_profile = "profile_events";
     let tree_events_listing = "listing_events";
     let tree_stats = "stats";
 
@@ -99,9 +103,9 @@ pub async fn run(settings: Settings) -> Result<()> {
 
         let mut need_rebuild_listing = false;
 
-        if let Some(metadata_events) = records_kind.remove(&IndexerEventKind::Metadata) {
-            if !metadata_events.is_empty() {
-                for ev in &metadata_events {
+        if let Some(profile_events) = records_kind.remove(&IndexerEventKind::Profile) {
+            if !profile_events.is_empty() {
+                for ev in &profile_events {
                     last_created_at = last_created_at.max(ev.created_at);
                     let id = &ev.id;
                     let hash = &ev.hash;
@@ -115,7 +119,7 @@ pub async fn run(settings: Settings) -> Result<()> {
                         continue;
                     }
 
-                    db_idx.insert(tree_events_metadata, id, ev)?;
+                    db_idx.insert(tree_events_profile, id, ev)?;
                     db_idx.insert_raw(tree_raw, id, hash.as_bytes())?;
                 }
 
@@ -126,11 +130,11 @@ pub async fn run(settings: Settings) -> Result<()> {
                 )?;
                 db_idx.flush()?;
 
-                let raw_metadata_events: Vec<RelayIndexerEvent> =
-                    db_idx.get_all(tree_events_metadata)?;
-                let indexed_metadata_events = EventMetadataIndexes::build(&raw_metadata_events)?;
+                let raw_profile_events: Vec<RelayIndexerEvent> =
+                    db_idx.get_all(tree_events_profile)?;
+                let indexed_profile_events = EventProfileIndexes::build(&raw_profile_events)?;
                 let mut updated_indexes = Vec::new();
-                indexed_metadata_events.write(&settings, &mut updated_indexes)?;
+                indexed_profile_events.write(&settings, &mut updated_indexes)?;
                 info!(
                     written = updated_indexes.len(),
                     "Written {} index files",
@@ -141,8 +145,8 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
-        let raw_metadata_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_metadata)?;
-        let profiles = ProfileResolver::from_metadata(&raw_metadata_events);
+        let raw_profile_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_profile)?;
+        let profiles = ProfileResolver::from_metadata(&raw_profile_events);
 
         if let Some(listing_events) = records_kind.remove(&IndexerEventKind::Listing) {
             if !listing_events.is_empty() {

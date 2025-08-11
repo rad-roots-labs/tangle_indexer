@@ -1,7 +1,6 @@
 <script lang="ts">
-    import { idb } from "$lib/utils/app/storage";
-    import { init_theme } from "$lib/utils/app/theme";
     import { ndk, ndk_global } from "@radroots/apps-lib";
+    import { idb, init_theme } from "@radroots/apps-lib-market";
     import { onMount, type Snippet } from "svelte";
     import "../app.css";
 

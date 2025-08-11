@@ -1,9 +1,11 @@
-import { PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL } from "$env/static/public";
-import type { PageLoadProfileData } from "$lib/types/page";
-import type { RadrootsMetadataEventData } from "@radroots/radroots-common-bindings";
+import { _env } from "$lib/utils/_env";
+import type { PageLoadProfileData } from "@radroots/apps-lib-market";
+import type { RadrootsProfileEventMetadata } from "@radroots/radroots-common-bindings";
 import { lib_nostr_npub_encode } from "@radroots/utils-nostr";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
+
+const { RADROOTS_MARKET_RELAY_INDEXES_URL: indexes_url } = _env;
 
 export const entries: EntryGenerator = async () => {
     const [
@@ -11,7 +13,7 @@ export const entries: EntryGenerator = async () => {
     ]: [
             string[]
         ] = await Promise.all([
-            fetch(`${PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL}/events/0/author/indexes.json`).then(r => r.json())
+            fetch(`${indexes_url}/events/0/author/indexes.json`).then(r => r.json())
         ]);
     return events_0_author_indexes.map(i => ({ 0: i }))
 };
@@ -24,12 +26,12 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     const [
         res_author_metadata,
     ] = await Promise.all([
-        fetch(`${PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL}/events/0/author/${public_key}/metadata.json`),
+        fetch(`${indexes_url}/events/0/author/${public_key}/metadata.json`),
     ]);
 
     if (!res_author_metadata.ok) error(404, { message: `public_key:${public_key}` });
 
-    const metadata_event: RadrootsMetadataEventData = await res_author_metadata.json();
+    const profile_event: RadrootsProfileEventMetadata = await res_author_metadata.json();
 
     const npub = lib_nostr_npub_encode(public_key);
 
@@ -37,7 +39,7 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
         public_key,
         npub,
         events: {
-            metadata: metadata_event
+            profile: profile_event
         }
     }
 

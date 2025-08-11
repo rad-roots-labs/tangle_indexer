@@ -19,7 +19,7 @@ impl IndexerKey {
     }
 }
 
-pub const METADATA_INDEX_DIRECTORY: [IndexerKey; 4] = [
+pub const PROFILE_INDEX_DIRECTORY: [IndexerKey; 4] = [
     IndexerKey::Id,
     IndexerKey::Author,
     IndexerKey::Nip05,

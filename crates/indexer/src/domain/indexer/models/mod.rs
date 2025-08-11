@@ -1,8 +1,8 @@
 pub mod listing;
-pub mod metadata;
+pub mod profile;
 
 pub use listing::EventListingIndexes;
-pub use metadata::EventMetadataIndexes;
+pub use profile::EventProfileIndexes;
 
 use crate::{config::Settings, domain::indexer::IndexerKey};
 use anyhow::Result;
