@@ -1,6 +1,6 @@
 import { _env } from "$lib/utils/_env";
 import type { PageLoadProfileData } from "@radroots/apps-lib-market";
-import type { RadrootsProfileEventMetadata } from "@radroots/radroots-common-bindings";
+import type { RadrootsProfileEventMetadata } from "@radroots/events-bindings";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
 

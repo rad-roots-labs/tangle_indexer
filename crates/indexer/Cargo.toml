@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 indexer-utils = { path = "../indexer-utils" }
-radroots-common = { path = "../../../../../crates/radroots-common/" }
+radroots-events = { path = "../../../../../crates/radroots-common/crates/events" }
+radroots-events-indexed = { path = "../../../../../crates/radroots-common/crates/events-indexed" }
 
 anyhow = "1.0"
 clap = { version = "4", features = ["derive"] }

@@ -1,6 +1,8 @@
-import { VITE_PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL } from "$env/static/public";
+import { _env } from "$lib/utils/_env";
 import { error } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
+
+const { RADROOTS_MARKET_RELAY_INDEXES_URL: indexes_url } = _env;
 
 type PageLoadData = {
     profiles: string[];
@@ -13,8 +15,8 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
         res_nip05_indexes,
         res_country_indexes,
     ] = await Promise.all([
-        fetch(`${VITE_PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL}/events/30402/nip05/indexes.json`),
-        fetch(`${VITE_PUBLIC_RADROOTS_MARKET_RELAY_INDEXES_URL}/events/30402/country/indexes.json`),
+        fetch(`${indexes_url}/events/30402/nip05/indexes.json`),
+        fetch(`${indexes_url}/events/30402/country/indexes.json`),
     ]);
 
     if (!res_nip05_indexes.ok) error(404, { message: `nip05:indexes` });

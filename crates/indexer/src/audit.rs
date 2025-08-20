@@ -10,8 +10,8 @@ use tracing::info;
 
 use crate::domain::resolvers::profile::ProfileResolver;
 use crate::relay::event::RelayIndexerEvent;
-use radroots_common::events::listing::models::RadrootsListingEventIndex;
-use radroots_common::events::profile::models::RadrootsProfileEventIndex;
+use radroots_events::listing::models::RadrootsListingEventIndex;
+use radroots_events::profile::models::RadrootsProfileEventIndex;
 
 #[derive(Clone, Debug)]
 pub struct AuditFilter {

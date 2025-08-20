@@ -2,9 +2,9 @@
     import { page } from "$app/state";
     import {
         Profile,
-        type IProfileViewUnknownNip05,
-        type IProfileViewUnknownNpub,
-        type IProfileViewUnknownPublicKey,
+        type IProfileViewNetworkNip05,
+        type IProfileViewNetworkNpub,
+        type IProfileViewNetworkPublicKey,
     } from "@radroots/apps-lib-market";
 
     $effect(() => {
@@ -14,7 +14,7 @@
 
 {#if page.error?.message}
     {@const [profile_type, profile_payload] = page.error.message.split(`:`)}
-    {@const unknown: IProfileViewUnknownPublicKey | IProfileViewUnknownNpub | IProfileViewUnknownNip05 | undefined =
+    {@const unknown: IProfileViewNetworkPublicKey | IProfileViewNetworkNpub | IProfileViewNetworkNip05 | undefined =
         profile_type === `public_key`
             ? {
                   public_key: profile_payload,

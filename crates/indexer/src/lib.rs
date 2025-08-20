@@ -27,7 +27,7 @@ pub mod audit;
 
 #[cfg(not(feature = "audit"))]
 pub mod audit {
-    use radroots_common::events::{
+    use radroots_events::{
         listing::models::RadrootsListingEventIndex, profile::models::RadrootsProfileEventIndex,
     };
 
@@ -109,7 +109,6 @@ pub async fn run(settings: Settings) -> Result<()> {
                     last_created_at = last_created_at.max(ev.created_at);
                     let id = &ev.id;
                     let hash = &ev.hash;
-
                     let skip = if let Some(old) = db_idx.get_raw(tree_raw, id)? {
                         old.as_ref() == hash.as_bytes()
                     } else {
@@ -211,6 +210,4 @@ pub async fn run(settings: Settings) -> Result<()> {
         );
         tokio::time::sleep(delay).await;
     }
-    #[allow(unreachable_code)]
-    Ok(())
 }

@@ -1299,12 +1299,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "radroots-common"
+name = "radroots-core"
+version = "0.1.0"
+dependencies = [
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+]
+
+[[package]]
+name = "radroots-events"
+version = "0.1.0"
+dependencies = [
+ "radroots-core",
+ "serde",
+ "typeshare",
+]
+
+[[package]]
+name = "radroots-events-indexed"
 version = "0.1.0"
 dependencies = [
  "serde",
- "serde_json",
- "thiserror 1.0.69",
  "typeshare",
 ]
 
@@ -1317,7 +1333,8 @@ dependencies = [
  "config",
  "indexer-utils",
  "once_cell",
- "radroots-common",
+ "radroots-events",
+ "radroots-events-indexed",
  "regex",
  "serde",
  "serde_json",
@@ -1454,6 +1471,27 @@ checksum = "e7295b7ce3bf4806b419dc3420745998b447178b7005e2011947b38fc5aa6791"
 dependencies = [
  "cfg-if",
  "ordered-multimap",
+]
+
+[[package]]
+name = "rust_decimal"
+version = "1.37.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b203a6425500a03e0919c42d3c47caca51e79f1132046626d2c8871c5092035d"
+dependencies = [
+ "arrayvec",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "rust_decimal_macros"
+version = "1.37.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6268b74858287e1a062271b988a0c534bf85bbeb567fe09331bf40ed78113d5"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]

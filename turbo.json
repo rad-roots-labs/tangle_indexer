@@ -1,0 +1,44 @@
+{
+    "$schema": "https://turborepo.com/schema.json",
+    "ui": "tui",
+    "tasks": {
+        "build": {
+            "dependsOn": [
+                "^build"
+            ],
+            "inputs": [
+                "$TURBO_DEFAULT$",
+                ".env*"
+            ],
+            "outputs": [
+                "dist/**",
+                ".svelte-kit/**"
+            ]
+        },
+        "lint": {
+            "dependsOn": [
+                "^lint"
+            ]
+        },
+        "check-types": {
+            "dependsOn": [
+                "^check-types"
+            ]
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        },
+        "app#build": {
+            "dependsOn": [
+                "@radroots/apps-lib#build",
+                "@radroots/apps-lib-market#build",
+                "@radroots/utils-nostr#build",
+                "@radroots/core-bindings#build",
+                "@radroots/events-bindings#build",
+                "@radroots/events-indexed-bindings#build",
+                "@radroots/trade-bindings#build"
+            ]
+        }
+    }
+}

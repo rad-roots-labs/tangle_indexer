@@ -4,7 +4,7 @@ use indexer_utils::{
     nostr::public_key_to_npub,
     write::{compute_hash, write_hash, write_json},
 };
-use radroots_common::events::profile::models::RadrootsProfileEventIndex;
+use radroots_events::profile::models::RadrootsProfileEventIndex;
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 

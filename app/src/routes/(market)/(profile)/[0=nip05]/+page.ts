@@ -1,6 +1,7 @@
 import { _env } from "$lib/utils/_env";
 import type { PageLoadProfileData } from "@radroots/apps-lib-market";
-import type { RadrootsIndexManifest, RadrootsListingEventMetadata, RadrootsProfileEventMetadata } from "@radroots/radroots-common-bindings";
+import type { RadrootsListingEventMetadata, RadrootsProfileEventMetadata } from "@radroots/events-bindings";
+import type { RadrootsEventsIndexedManifest } from "@radroots/events-indexed-bindings";
 import { lib_nostr_npub_encode } from "@radroots/utils-nostr";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
@@ -35,7 +36,7 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     if (!res_nip05_listings_manifest.ok) error(404, { message: `nip05:listing:manifest:${nip05}`, });
 
     const profile_event: RadrootsProfileEventMetadata = await res_nip05_metadata.json();
-    const listings_manifest: RadrootsIndexManifest = await res_nip05_listings_manifest.json();
+    const listings_manifest: RadrootsEventsIndexedManifest = await res_nip05_listings_manifest.json();
 
     let listings_events: RadrootsListingEventMetadata[] = [];
     if (listings_manifest.shards.length > 0) {

@@ -1,3 +1,10 @@
 @import "tailwindcss";
 
-@plugin "daisyui" {}
+@import "../theme.css";
+
+@plugin "daisyui" {
+  themes: os_light, os_dark;
+}
+
+@source "../../../../../global/packages/apps-lib/src/**/*.{svelte,ts}";
+@source "../../../../../global/packages/apps-lib-market/src/**/*.{svelte,ts}";

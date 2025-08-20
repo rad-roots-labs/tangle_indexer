@@ -5,7 +5,7 @@ flush_interval = 20
 
 [relay]
 url = "ws://127.0.0.1:8080"
-db_path = "data/nostr-rs-relay/nostr.db"
+database_path = "data/nostr-rs-relay/nostr.db"
 
 [listings]
 country_shard_size = 1000

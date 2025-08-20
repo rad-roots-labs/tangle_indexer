@@ -19,7 +19,8 @@
       "app",
       "packages/*",
       "../../../global/packages/*",
-      "../../../crates/radroots-common/bindings/ts*"
+      "../../../crates/radroots-common/bindings/ts*",
+      "../../../crates/radroots-common/packages/bindings/*"
     ],
     "nohoist": []
   },

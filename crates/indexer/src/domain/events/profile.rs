@@ -1,8 +1,8 @@
 use anyhow::Result;
-use radroots_common::events::profile::models::{
-    RadrootsProfile, RadrootsProfileEventIndex, RadrootsProfileEventMetadata,
+use radroots_events::{
+    profile::models::{RadrootsProfile, RadrootsProfileEventIndex, RadrootsProfileEventMetadata},
+    RadrootsNostrEvent,
 };
-use radroots_common::events::RadrootsNostrEvent;
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -12,10 +12,8 @@ use crate::relay::event::RelayIndexerEvent;
 pub enum RadrootsProfileEventIndexError {
     #[error("Failed to parse metadata content JSON: {0}")]
     ParseError(#[from] serde_json::Error),
-
     #[error("Missing or empty 'name' field in profile data")]
     MissingNameField,
-
     #[error("Missing or invalid 'published_at' tag")]
     MissingPublishedAt,
 }
@@ -60,7 +58,7 @@ impl ToRadrootsProfileEventIndex for RelayIndexerEvent {
         let metadata = create_radroots_profile_event_metadata(
             self.id.clone(),
             self.author.clone(),
-            self.created_at.clone(),
+            self.created_at,
             self.content.clone(),
             self.tags.clone(),
         )?;

@@ -50,12 +50,12 @@ impl Settings {
             Ok(cfg) => match cfg.try_deserialize::<Settings>() {
                 Ok(settings) => Ok(settings),
                 Err(err) => {
-                    error!("❌ Failed to deserialize configuration: {err}");
+                    error!("Failed to deserialize configuration: {err}");
                     Err(SettingsError::Load(err))
                 }
             },
             Err(err) => {
-                error!("❌ Failed to load configuration from '{}': {err}", path);
+                error!("Failed to load configuration from '{}': {err}", path);
                 Err(SettingsError::Load(err))
             }
         }

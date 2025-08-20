@@ -4,10 +4,8 @@ use indexer_utils::{
     nostr::public_key_to_npub,
     write::{compute_hash, write_hash, write_json},
 };
-use radroots_common::{
-    events::listing::models::{RadrootsListingEventIndex, RadrootsListingEventMetadata},
-    models::indexer::{RadrootsIndexManifest, RadrootsIndexShardMetadata},
-};
+use radroots_events::listing::models::{RadrootsListingEventIndex, RadrootsListingEventMetadata};
+use radroots_events_indexed::{RadrootsEventsIndexedManifest, RadrootsEventsIndexedShardMetadata};
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use tracing::{instrument, warn};
 
@@ -19,7 +17,6 @@ use crate::{
             key::LISTING_INDEX_DIRECTORY,
             kind::IndexerEventKind,
             models::{EventIndexes, NostrEventsStaticError, WriteEventIndexes},
-            IndexerKey,
         },
         resolvers::profile::ProfileResolver,
     },
@@ -175,7 +172,7 @@ impl EventListingIndexes {
 impl EventIndexes for EventListingIndexes {
     type Event = RelayIndexerEvent;
 
-    fn subdirs() -> &'static [IndexerKey] {
+    fn subdirs() -> &'static [crate::domain::indexer::IndexerKey] {
         &LISTING_INDEX_DIRECTORY
     }
 
@@ -232,7 +229,7 @@ impl WriteEventIndexes for EventListingIndexes {
         }
 
         {
-            let sub_country = base.join(IndexerKey::Country.as_str());
+            let sub_country = base.join(crate::domain::indexer::IndexerKey::Country.as_str());
             fs_mkdir(&[&sub_country])?;
             let country_codes: Vec<String> = self.country_ids.keys().cloned().collect();
             write_if_stale!(sub_country.join("indexes.json"), country_codes, updated);
@@ -262,7 +259,7 @@ impl WriteEventIndexes for EventListingIndexes {
                         (0, 0)
                     };
 
-                let mut manifest = RadrootsIndexManifest {
+                let mut manifest = RadrootsEventsIndexedManifest {
                     country: cc.clone(),
                     total: u32::try_from(data_items.len()).expect("too many data items for u32"),
                     shard_size: u32::try_from(shard_size).expect("shard_size too large for u32"),
@@ -297,7 +294,7 @@ impl WriteEventIndexes for EventListingIndexes {
                         (fp.0, fp.1, lp.0, lp.1)
                     };
 
-                    manifest.shards.push(RadrootsIndexShardMetadata {
+                    manifest.shards.push(RadrootsEventsIndexedShardMetadata {
                         file: file_rel,
                         count: u32::try_from(chunk.len()).expect("chunk length too large for u32"),
                         first_id,
@@ -313,7 +310,7 @@ impl WriteEventIndexes for EventListingIndexes {
         }
 
         {
-            let sub_author = base.join(IndexerKey::Author.as_str());
+            let sub_author = base.join(crate::domain::indexer::IndexerKey::Author.as_str());
             fs_mkdir(&[&sub_author])?;
             let authors: Vec<String> = self.author_ids.keys().cloned().collect();
             write_if_stale!(sub_author.join("indexes.json"), authors, updated);
@@ -341,7 +338,7 @@ impl WriteEventIndexes for EventListingIndexes {
                         (0, 0)
                     };
 
-                let mut manifest = RadrootsIndexManifest {
+                let mut manifest = RadrootsEventsIndexedManifest {
                     country: author.clone(),
                     total: u32::try_from(data_items.len()).expect("too many data items for u32"),
                     shard_size: u32::try_from(shard_size).expect("shard_size too large for u32"),
@@ -381,7 +378,7 @@ impl WriteEventIndexes for EventListingIndexes {
                             (fp.0, fp.1, lp.0, lp.1)
                         };
 
-                    manifest.shards.push(RadrootsIndexShardMetadata {
+                    manifest.shards.push(RadrootsEventsIndexedShardMetadata {
                         file: file_rel,
                         count: u32::try_from(std::cmp::min(
                             shard_size,
@@ -401,7 +398,7 @@ impl WriteEventIndexes for EventListingIndexes {
         }
 
         {
-            let sub_npub = base.join(IndexerKey::Npub.as_str());
+            let sub_npub = base.join(crate::domain::indexer::IndexerKey::Npub.as_str());
             fs_mkdir(&[&sub_npub])?;
             let npubs: Vec<String> = self.npub_ids.keys().cloned().collect();
             write_if_stale!(sub_npub.join("indexes.json"), npubs, updated);
@@ -429,7 +426,7 @@ impl WriteEventIndexes for EventListingIndexes {
                         (0, 0)
                     };
 
-                let mut manifest = RadrootsIndexManifest {
+                let mut manifest = RadrootsEventsIndexedManifest {
                     country: npub.clone(),
                     total: u32::try_from(data_items.len()).expect("too many data items for u32"),
                     shard_size: u32::try_from(shard_size).expect("shard_size too large for u32"),
@@ -469,7 +466,7 @@ impl WriteEventIndexes for EventListingIndexes {
                             (fp.0, fp.1, lp.0, lp.1)
                         };
 
-                    manifest.shards.push(RadrootsIndexShardMetadata {
+                    manifest.shards.push(RadrootsEventsIndexedShardMetadata {
                         file: file_rel,
                         count: u32::try_from(std::cmp::min(
                             shard_size,
@@ -488,7 +485,7 @@ impl WriteEventIndexes for EventListingIndexes {
             }
 
             {
-                let sub_nip05 = base.join(IndexerKey::Nip05.as_str());
+                let sub_nip05 = base.join(crate::domain::indexer::IndexerKey::Nip05.as_str());
                 fs_mkdir(&[&sub_nip05])?;
                 let names: Vec<String> = self.nip05_ids.keys().cloned().collect();
                 write_if_stale!(sub_nip05.join("indexes.json"), names, updated);
@@ -515,7 +512,7 @@ impl WriteEventIndexes for EventListingIndexes {
                             (0, 0)
                         };
 
-                    let mut manifest = RadrootsIndexManifest {
+                    let mut manifest = RadrootsEventsIndexedManifest {
                         country: name.clone(),
                         total: u32::try_from(data_items.len()).expect("u32 overflow"),
                         shard_size: u32::try_from(shard_size).expect("u32 overflow"),
@@ -550,7 +547,7 @@ impl WriteEventIndexes for EventListingIndexes {
                             (fp.0, fp.1, lp.0, lp.1)
                         };
 
-                        manifest.shards.push(RadrootsIndexShardMetadata {
+                        manifest.shards.push(RadrootsEventsIndexedShardMetadata {
                             file: file_rel,
                             count: u32::try_from(std::cmp::min(
                                 shard_size,

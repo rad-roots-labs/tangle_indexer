@@ -32,7 +32,10 @@
 		"@radroots/apps-lib": "*",
 		"@radroots/apps-lib-market": "*",
 		"@radroots/utils-nostr": "*",
-		"@radroots/radroots-common-bindings": "*",
+		"@radroots/core-bindings": "*",
+		"@radroots/events-bindings": "*",
+		"@radroots/events-indexed-bindings": "*",
+		"@radroots/trade-bindings": "*",
 		"@nostr-dev-kit/ndk": "2.14.33"
 	}
 }
