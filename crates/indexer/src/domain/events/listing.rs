@@ -17,6 +17,7 @@ fn create_radroots_listing_event_metadata(
     id: String,
     author: String,
     published_at: u32,
+    kind: u32,
     content: String,
     _tags: Vec<Vec<String>>,
 ) -> Result<RadrootsListingEventMetadata, RadrootsListingEventIndexError> {
@@ -25,6 +26,7 @@ fn create_radroots_listing_event_metadata(
         id,
         author,
         published_at,
+        kind,
         listing,
     })
 }
@@ -39,10 +41,13 @@ impl ToRadrootsListingEventIndex for RelayIndexerEvent {
     fn to_radroots_listing_event(
         self,
     ) -> Result<RadrootsListingEventIndex, RadrootsListingEventIndexError> {
+        let kind_u32 = self.kind.as_u64() as u32;
+
         let metadata = create_radroots_listing_event_metadata(
             self.id.clone(),
             self.author.clone(),
             self.created_at,
+            kind_u32,
             self.content.clone(),
             self.tags.clone(),
         )?;
@@ -52,7 +57,7 @@ impl ToRadrootsListingEventIndex for RelayIndexerEvent {
                 id: self.id,
                 author: self.author,
                 created_at: self.created_at,
-                kind: self.kind.as_u64() as u32,
+                kind: kind_u32,
                 tags: self.tags,
                 content: self.content,
                 sig: self.sig,

@@ -21,7 +21,8 @@ pub enum RadrootsProfileEventIndexError {
 pub fn create_radroots_profile_event_metadata(
     id: String,
     author: String,
-    published_at: u32,
+    published_at: u64,
+    kind: u32,
     content: String,
     tags: Vec<Vec<String>>,
 ) -> Result<RadrootsProfileEventMetadata, RadrootsProfileEventIndexError> {
@@ -41,6 +42,7 @@ pub fn create_radroots_profile_event_metadata(
         id,
         author,
         published_at,
+        kind,
         profile,
     })
 }
@@ -55,10 +57,13 @@ impl ToRadrootsProfileEventIndex for RelayIndexerEvent {
     fn to_radroots_profile_event(
         self,
     ) -> Result<RadrootsProfileEventIndex, RadrootsProfileEventIndexError> {
+        let kind_u32 = self.kind.as_u64() as u32;
+
         let metadata = create_radroots_profile_event_metadata(
             self.id.clone(),
             self.author.clone(),
-            self.created_at,
+            self.created_at as u64,
+            kind_u32,
             self.content.clone(),
             self.tags.clone(),
         )?;
@@ -68,7 +73,7 @@ impl ToRadrootsProfileEventIndex for RelayIndexerEvent {
                 id: self.id,
                 author: self.author,
                 created_at: self.created_at,
-                kind: self.kind.as_u64().try_into().unwrap(),
+                kind: kind_u32,
                 content: self.content,
                 tags: self.tags,
                 sig: self.sig,

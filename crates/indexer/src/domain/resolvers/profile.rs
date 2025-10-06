@@ -9,7 +9,7 @@ pub struct ProfileResolver {
 
 impl ProfileResolver {
     pub fn from_metadata(raw_metadata: &[RelayIndexerEvent]) -> Self {
-        let mut latest: BTreeMap<String, (u32, String)> = BTreeMap::new();
+        let mut latest: BTreeMap<String, (u64, String)> = BTreeMap::new();
 
         for raw in raw_metadata {
             if let Ok(evt) = raw.clone().to_radroots_profile_event() {
@@ -20,7 +20,7 @@ impl ProfileResolver {
                     }
 
                     let author = evt.event.author.to_lowercase();
-                    let ts = evt.metadata.published_at;
+                    let ts: u64 = evt.metadata.published_at;
                     match latest.get(&author) {
                         Some(&(old_ts, _)) if old_ts >= ts => {}
                         _ => {
