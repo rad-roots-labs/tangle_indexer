@@ -11,6 +11,7 @@ rust-version = "1.86.0"
 license = "AGPL-3.0"
 
 [workspace.dependencies]
+radroots-core = { path = "../../crates/crates/core" }
 radroots-events = { path = "../../crates/crates/events" }
 radroots-events-indexed = { path = "../../crates/crates/events-indexed" }
 

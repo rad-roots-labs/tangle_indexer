@@ -1334,6 +1334,7 @@ dependencies = [
  "config",
  "indexer-utils",
  "once_cell",
+ "radroots-core",
  "radroots-events",
  "radroots-events-indexed",
  "regex",

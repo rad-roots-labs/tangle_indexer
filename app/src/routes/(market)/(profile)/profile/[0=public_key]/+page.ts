@@ -5,7 +5,7 @@ import { lib_nostr_npub_encode } from "@radroots/utils-nostr";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
 
-const { RADROOTS_MARKET_RELAY_INDEXES_URL: indexes_url } = _env;
+const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
 
 export const entries: EntryGenerator = async () => {
     const [
@@ -13,7 +13,7 @@ export const entries: EntryGenerator = async () => {
     ]: [
             string[]
         ] = await Promise.all([
-            fetch(`${indexes_url}/events/0/author/indexes.json`).then(r => r.json())
+            fetch(`${idx_url}/events/0/author/indexes.json`).then(r => r.json())
         ]);
     return events_0_author_indexes.map(i => ({ 0: i }))
 };
@@ -26,7 +26,7 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     const [
         res_author_metadata,
     ] = await Promise.all([
-        fetch(`${indexes_url}/events/0/author/${public_key}/metadata.json`),
+        fetch(`${idx_url}/events/0/author/${public_key}/metadata.json`),
     ]);
 
     if (!res_author_metadata.ok) error(404, { message: `public_key:${public_key}` });

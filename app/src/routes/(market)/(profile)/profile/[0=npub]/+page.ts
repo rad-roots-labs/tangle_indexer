@@ -4,7 +4,7 @@ import type { RadrootsProfileEventMetadata } from "@radroots/events-bindings";
 import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
 
-const { RADROOTS_MARKET_RELAY_INDEXES_URL: indexes_url } = _env;
+const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
 
 export const entries: EntryGenerator = async () => {
     const [
@@ -12,7 +12,7 @@ export const entries: EntryGenerator = async () => {
     ]: [
             string[]
         ] = await Promise.all([
-            fetch(`${indexes_url}/events/0/npub/indexes.json`).then(r => r.json())
+            fetch(`${idx_url}/events/0/npub/indexes.json`).then(r => r.json())
         ]);
     return events_0_author_indexes.map(i => ({ 0: i }))
 };
@@ -25,7 +25,7 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     const [
         res_npub_metadata,
     ] = await Promise.all([
-        fetch(`${indexes_url}/events/0/npub/${npub}/metadata.json`)
+        fetch(`${idx_url}/events/0/npub/${npub}/metadata.json`)
     ]);
 
     if (!res_npub_metadata.ok) error(404, { message: `npub:${npub}` });

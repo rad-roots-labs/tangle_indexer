@@ -5,7 +5,8 @@
   "scripts": {
     "build": "turbo build",
     "build:app": "turbo build --filter=app --filter=@radroots/*",
-    "dev": "turbo dev --filter=@radroots/*"
+    "dev:lib": "turbo dev --filter=@radroots/* --concurrency 16",
+    "dev:app": "cd app && yarn dev"
   },
   "devDependencies": {
     "turbo": "2.5.3",

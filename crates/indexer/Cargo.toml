@@ -11,6 +11,7 @@ audit = []
 
 [dependencies]
 indexer-utils = { path = "../indexer-utils" }
+radroots-core = { workspace = true }
 radroots-events = { workspace = true }
 radroots-events-indexed = { workspace = true }
 

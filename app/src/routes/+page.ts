@@ -2,7 +2,7 @@ import { _env } from "$lib/utils/_env";
 import { error } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
-const { RADROOTS_MARKET_RELAY_INDEXES_URL: indexes_url } = _env;
+const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
 
 type PageLoadData = {
     profiles: string[];
@@ -10,13 +10,12 @@ type PageLoadData = {
 };
 
 export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
-
     const [
         res_nip05_indexes,
         res_country_indexes,
     ] = await Promise.all([
-        fetch(`${indexes_url}/events/30402/nip05/indexes.json`),
-        fetch(`${indexes_url}/events/30402/country/indexes.json`),
+        fetch(`${idx_url}/events/30402/nip05/indexes.json`),
+        fetch(`${idx_url}/events/30402/country/indexes.json`),
     ]);
 
     if (!res_nip05_indexes.ok) error(404, { message: `nip05:indexes` });
