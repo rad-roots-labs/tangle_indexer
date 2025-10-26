@@ -1,15 +1,15 @@
 import { _env } from "$lib/utils/_env";
 import { load_profile_indexed } from "$lib/utils/profile";
-import type { EntryGenerator as entry_generator, PageLoad as page_load } from "./$types";
+import type { EntryGenerator, PageLoad } from "./$types";
 
 const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
 
-export const entries: entry_generator = async () => {
+export const entries: EntryGenerator = async () => {
     const indexes: string[] = await fetch(`${idx_url}/events/0/npub/indexes.json`).then(r => r.json());
     return indexes.map(i => ({ 0: i }));
 };
 
-export const load: page_load = async ({ fetch, params }) => {
+export const load: PageLoad = async ({ fetch, params }) => {
     const { 0: npub } = params;
     return load_profile_indexed(fetch, "npub", npub);
 };
