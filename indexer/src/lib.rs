@@ -37,11 +37,18 @@ use crate::{
     domain::{
         indexer::{
             kind::IndexerEventKind,
-            models::{EventIndexes, EventListingIndexes, EventProfileIndexes, WriteEventIndexes},
+            models::{
+                EventIndexes, EventListingIndexes, EventProfileIndexes, EventReactionIndexes,
+                WriteEventIndexes,
+            },
         },
         resolvers::profile::ProfileResolver,
     },
-    relay::event::RelayIndexerEvent, utils::{db::IndexerDb, sqlite::{sqlite_conn, sqlite_stmt}},
+    relay::event::RelayIndexerEvent,
+    utils::{
+        db::IndexerDb,
+        sqlite::{sqlite_conn, sqlite_stmt},
+    },
 };
 pub use config::Settings;
 pub use relay::record::RelayEventRecord;
@@ -51,6 +58,7 @@ pub async fn run(settings: Settings) -> Result<()> {
     let tree_raw = "hashes";
     let tree_events_profile = "profile_events";
     let tree_events_listing = "listing_events";
+    let tree_events_reaction = "reaction_events";
     let tree_stats = "stats";
 
     let last_created_at_db: u32 = db_idx
@@ -100,6 +108,7 @@ pub async fn run(settings: Settings) -> Result<()> {
 
         let mut need_rebuild_listing = false;
 
+        // Handle Profile Events
         if let Some(profile_events) = records_kind.remove(&IndexerEventKind::Profile) {
             if !profile_events.is_empty() {
                 for ev in &profile_events {
@@ -141,9 +150,11 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
+        // Load current profile data (used for listings and reactions)
         let raw_profile_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_profile)?;
         let profiles = ProfileResolver::from_metadata(&raw_profile_events);
 
+        // Handle Listing Events
         if let Some(listing_events) = records_kind.remove(&IndexerEventKind::Listing) {
             if !listing_events.is_empty() {
                 for ev in &listing_events {
@@ -184,6 +195,47 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
+        // Handle Reaction Events
+        if let Some(reaction_events) = records_kind.remove(&IndexerEventKind::Reaction) {
+            if !reaction_events.is_empty() {
+                for ev in &reaction_events {
+                    last_created_at = last_created_at.max(ev.created_at);
+                    let id = &ev.id;
+                    let hash = &ev.hash;
+                    let skip = if let Some(old) = db_idx.get_raw(tree_raw, id)? {
+                        old.as_ref() == hash.as_bytes()
+                    } else {
+                        false
+                    };
+                    if skip {
+                        continue;
+                    }
+                    db_idx.insert(tree_events_reaction, id, ev)?;
+                    db_idx.insert_raw(tree_raw, id, hash.as_bytes())?;
+                }
+
+                db_idx.insert_raw(
+                    tree_stats,
+                    "last_created_at",
+                    &last_created_at.to_be_bytes(),
+                )?;
+                db_idx.flush()?;
+
+                let raw_reaction_events: Vec<RelayIndexerEvent> =
+                    db_idx.get_all(tree_events_reaction)?;
+                let reaction_indexes =
+                    EventReactionIndexes::build_with_profiles(&raw_reaction_events, &profiles)?;
+                let mut updated_reaction = Vec::new();
+                reaction_indexes.write(&settings, &mut updated_reaction)?;
+                info!(
+                    written = updated_reaction.len(),
+                    "Written {} reaction index files",
+                    updated_reaction.len()
+                );
+            }
+        }
+
+        // If new profiles or listings were written, rebuild the listing indexes
         if need_rebuild_listing {
             let raw_listing_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_listing)?;
             let listing_indexes =
@@ -197,6 +249,7 @@ pub async fn run(settings: Settings) -> Result<()> {
             );
         }
 
+        // Sleep between runs based on configuration
         let elapsed = iteration_start.elapsed();
         let interval = Duration::from_secs(settings.indexer.flush_interval);
         let delay = interval.saturating_sub(elapsed);

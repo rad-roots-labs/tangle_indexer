@@ -1,3 +1,4 @@
+use crate::domain::indexer::key::{IndexerKey, PROFILE_INDEX_DIRECTORY};
 use crate::utils::crypto::compute_hash;
 use crate::utils::io::fs_mkdir;
 use crate::utils::io::{write_hash, write_json};
@@ -10,7 +11,6 @@ use crate::{
         indexer::{
             kind::IndexerEventKind,
             models::{EventIndexes, NostrEventsStaticError, WriteEventIndexes},
-            IndexerKey, PROFILE_INDEX_DIRECTORY,
         },
     },
     relay::event::RelayIndexerEvent,

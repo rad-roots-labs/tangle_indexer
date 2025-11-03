@@ -4,7 +4,7 @@ logs_dir = "./dev/logs/indexer"
 flush_interval = 20
 
 [relay]
-url = "ws://127.0.0.1:21648"
+url = "ws://127.0.0.1:8080"
 database_path = "./dev/data/relay/nostr.db"
 
 [listings]

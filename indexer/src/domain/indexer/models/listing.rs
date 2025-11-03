@@ -171,7 +171,7 @@ impl EventListingIndexes {
 impl EventIndexes for EventListingIndexes {
     type Event = RelayIndexerEvent;
 
-    fn subdirs() -> &'static [crate::domain::indexer::IndexerKey] {
+    fn subdirs() -> &'static [crate::domain::indexer::key::IndexerKey] {
         &LISTING_INDEX_DIRECTORY
     }
 
@@ -228,7 +228,7 @@ impl WriteEventIndexes for EventListingIndexes {
         }
 
         {
-            let sub_country = base.join(crate::domain::indexer::IndexerKey::Country.as_str());
+            let sub_country = base.join(crate::domain::indexer::key::IndexerKey::Country.as_str());
             fs_mkdir(&[&sub_country])?;
             let country_codes: Vec<String> = self.country_ids.keys().cloned().collect();
             write_if_stale!(sub_country.join("indexes.json"), country_codes, updated);
@@ -309,7 +309,7 @@ impl WriteEventIndexes for EventListingIndexes {
         }
 
         {
-            let sub_author = base.join(crate::domain::indexer::IndexerKey::Author.as_str());
+            let sub_author = base.join(crate::domain::indexer::key::IndexerKey::Author.as_str());
             fs_mkdir(&[&sub_author])?;
             let authors: Vec<String> = self.author_ids.keys().cloned().collect();
             write_if_stale!(sub_author.join("indexes.json"), authors, updated);
@@ -397,7 +397,7 @@ impl WriteEventIndexes for EventListingIndexes {
         }
 
         {
-            let sub_npub = base.join(crate::domain::indexer::IndexerKey::Npub.as_str());
+            let sub_npub = base.join(crate::domain::indexer::key::IndexerKey::Npub.as_str());
             fs_mkdir(&[&sub_npub])?;
             let npubs: Vec<String> = self.npub_ids.keys().cloned().collect();
             write_if_stale!(sub_npub.join("indexes.json"), npubs, updated);
@@ -484,7 +484,7 @@ impl WriteEventIndexes for EventListingIndexes {
             }
 
             {
-                let sub_nip05 = base.join(crate::domain::indexer::IndexerKey::Nip05.as_str());
+                let sub_nip05 = base.join(crate::domain::indexer::key::IndexerKey::Nip05.as_str());
                 fs_mkdir(&[&sub_nip05])?;
                 let names: Vec<String> = self.nip05_ids.keys().cloned().collect();
                 write_if_stale!(sub_nip05.join("indexes.json"), names, updated);

@@ -5,6 +5,7 @@ pub enum IndexerKey {
     Nip05,
     Npub,
     Country,
+    RootId,
 }
 
 impl IndexerKey {
@@ -15,6 +16,7 @@ impl IndexerKey {
             IndexerKey::Nip05 => "nip05",
             IndexerKey::Npub => "npub",
             IndexerKey::Country => "country",
+            IndexerKey::RootId => "root",
         }
     }
 }
@@ -29,6 +31,14 @@ pub const PROFILE_INDEX_DIRECTORY: [IndexerKey; 4] = [
 pub const LISTING_INDEX_DIRECTORY: [IndexerKey; 5] = [
     IndexerKey::Id,
     IndexerKey::Country,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];
+
+pub const REACTION_INDEX_DIRECTORY: [IndexerKey; 5] = [
+    IndexerKey::Id,
+    IndexerKey::RootId,
     IndexerKey::Author,
     IndexerKey::Npub,
     IndexerKey::Nip05,

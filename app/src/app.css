@@ -6,5 +6,5 @@
   themes: os_light, os_dark;
 }
 
-@source "../../../../../global/packages/apps-lib/src/**/*.{svelte,ts}";
-@source "../../../../../global/packages/apps-lib-market/src/**/*.{svelte,ts}";
+@source "../../../packages/apps-lib/src/**/*.{svelte,ts}";
+@source "../../../packages/apps-lib-market/src/**/*.{svelte,ts}";

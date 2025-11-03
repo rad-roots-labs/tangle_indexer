@@ -1,10 +1,12 @@
 pub mod listing;
 pub mod profile;
+pub mod reaction;
 
 pub use listing::EventListingIndexes;
 pub use profile::EventProfileIndexes;
+pub use reaction::EventReactionIndexes;
 
-use crate::{config::Settings, domain::indexer::IndexerKey};
+use crate::{config::Settings, domain::indexer::key::IndexerKey};
 use anyhow::Result;
 use std::path::PathBuf;
 use thiserror::Error;

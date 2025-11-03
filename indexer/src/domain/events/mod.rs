@@ -1,8 +1,10 @@
 pub mod listing;
 pub mod profile;
+pub mod reaction;
 
 pub use listing::ToRadrootsListingEventIndex;
 pub use profile::ToRadrootsProfileEventIndex;
+pub use reaction::ToRadrootsReactionEventIndex;
 
 #[macro_export]
 macro_rules! opt_required {

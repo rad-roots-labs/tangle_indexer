@@ -3,22 +3,29 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::path::PathBuf;
 
-use crate::domain::indexer::key::LISTING_INDEX_DIRECTORY;
-use crate::domain::indexer::{IndexerKey, PROFILE_INDEX_DIRECTORY};
+use crate::domain::indexer::key::{
+    IndexerKey, LISTING_INDEX_DIRECTORY, PROFILE_INDEX_DIRECTORY, REACTION_INDEX_DIRECTORY,
+};
 use crate::utils::io::{paths_join, PathsError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IndexerEventKind {
     Profile,
+    Reaction,
     Listing,
 }
 
 impl IndexerEventKind {
-    pub const ALL: [IndexerEventKind; 2] = [IndexerEventKind::Profile, IndexerEventKind::Listing];
+    pub const ALL: [IndexerEventKind; 3] = [
+        IndexerEventKind::Profile,
+        IndexerEventKind::Reaction,
+        IndexerEventKind::Listing,
+    ];
 
     pub const fn as_u64(self) -> u64 {
         match self {
             IndexerEventKind::Profile => 0,
+            IndexerEventKind::Reaction => 7,
             IndexerEventKind::Listing => 30402,
         }
     }
@@ -26,6 +33,7 @@ impl IndexerEventKind {
     pub const fn paths(self) -> &'static [IndexerKey] {
         match self {
             IndexerEventKind::Profile => &PROFILE_INDEX_DIRECTORY,
+            IndexerEventKind::Reaction => &REACTION_INDEX_DIRECTORY,
             IndexerEventKind::Listing => &LISTING_INDEX_DIRECTORY,
         }
     }
@@ -76,6 +84,7 @@ impl TryFrom<u64> for IndexerEventKind {
     fn try_from(val: u64) -> Result<Self, Self::Error> {
         match val {
             0 => Ok(IndexerEventKind::Profile),
+            7 => Ok(IndexerEventKind::Reaction),
             30402 => Ok(IndexerEventKind::Listing),
             other => Err(IndexerEventKindParseError(other)),
         }
