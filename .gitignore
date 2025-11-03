@@ -40,3 +40,6 @@ justfile
 *dev*.json
 dev/data/
 dev/logs/
+
+# static
+app/static/fonts

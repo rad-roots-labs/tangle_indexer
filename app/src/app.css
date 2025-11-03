@@ -2,9 +2,23 @@
 
 @import "../theme.css";
 
+@import "../static/fonts/brown-regular/styles.css";
+@import "../static/fonts/serif/styles.css";
+
 @plugin "daisyui" {
   themes: os_light, os_dark;
 }
 
+@source "./lib/**/*.{svelte,ts}";
 @source "../../../packages/apps-lib/src/**/*.{svelte,ts}";
 @source "../../../packages/apps-lib-market/src/**/*.{svelte,ts}";
+
+@theme {
+  --font-br: "Brown";
+  --font-rsf: "RadrootsSerif";
+  --font-rsfd: "RadrootsSerifDisplay";
+
+  --color-morning_snow: #f8f4ee;
+  --color-cloak_grey: #616161;
+  --color-black_panther: #424242;
+}

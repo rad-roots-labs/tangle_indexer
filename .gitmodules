@@ -2,3 +2,6 @@
 	path = app/static/assets
 	url = git@github.com:rad-roots-labs/assets.git
 	branch = app
+[submodule "app/static/phosphor-icons"]
+	path = app/static/phosphor-icons
+	url = git@github.com:rad-roots-labs/phosphor-icons.git
