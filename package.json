@@ -18,9 +18,8 @@
   "workspaces": {
     "packages": [
       "app",
-      "packages/*",
-      "../../crates/packages/bindings/*",
-      "../../../global/packages/*"
+      "../packages/*",
+      "../crates/*/bindings/ts"
     ],
     "nohoist": []
   },

@@ -2,7 +2,7 @@ import { _env } from "$lib/utils/_env";
 import { error } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
-const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
+const { RADROOTS_MARKET_INDEXES_URL: idx_url } = _env;
 
 type PageLoadData = {
     profiles: string[];
@@ -10,6 +10,13 @@ type PageLoadData = {
 };
 
 export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
+    if (!idx_url) {
+        return {
+            profiles: [],
+            countries: [],
+        };
+    }
+
     const [
         res_nip05_indexes,
         res_country_indexes,
@@ -31,4 +38,4 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     return data;
 }
 
-export const prerender = true;
+export const prerender = idx_url ? true : false;

@@ -1,0 +1,24 @@
+services:
+  rad-roots-dev-relay:
+    platform: linux/amd64
+    image: scsibug/nostr-rs-relay:latest
+    container_name: rad-roots-dev-relay
+    ports:
+      - "21648:8080"
+    volumes:
+      - ./data/relay:/usr/src/app/db
+      - ./relay-config.toml:/usr/src/app/config.toml
+    environment:
+      - RUST_LOG=info,nostr_rs_relay=debug
+    restart: unless-stopped
+
+  rad-roots-dev-indexes:
+    platform: linux/amd64
+    image: nginx:alpine
+    container_name: rad-roots-dev-indexes
+    ports:
+      - "21649:80"
+    volumes:
+      - ./data/indexer/static:/usr/share/nginx/html/static:ro
+      - ./indexer-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

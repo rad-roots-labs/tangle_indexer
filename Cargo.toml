@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/*",
+    "indexer",
 ]
 resolver = "2"
 
@@ -11,9 +11,9 @@ rust-version = "1.86.0"
 license = "AGPL-3.0"
 
 [workspace.dependencies]
-radroots-core = { path = "../../crates/crates/core" }
-radroots-events = { path = "../../crates/crates/events" }
-radroots-events-indexed = { path = "../../crates/crates/events-indexed" }
+radroots-core = { path = "../crates/core" }
+radroots-events = { path = "../crates/events" }
+radroots-events-indexed = { path = "../crates/events-indexed" }
 
 anyhow = { version = "1" }
 clap = { version = "4", features = ["derive"] }

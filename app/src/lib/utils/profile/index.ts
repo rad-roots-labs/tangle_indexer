@@ -7,7 +7,7 @@ import { lib_nostr_npub_encode } from "@radroots/utils-nostr";
 
 type ProfileRoutesKind = "author" | "npub" | "nip05";
 
-const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
+const { RADROOTS_MARKET_INDEXES_URL: idx_url } = _env;
 
 async function fetch_listings(fetch_fn: HttpFetch, kind: ProfileRoutesKind, key: string): Promise<RadrootsListingEventMetadata[]> {
     const manifest = await fetch_json<radroots_events_indexed_manifest>(

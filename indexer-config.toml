@@ -1,0 +1,12 @@
+[indexer]
+data_dir = "./dev/data/indexer"
+logs_dir = "./dev/logs/indexer"
+flush_interval = 20
+
+[relay]
+url = "ws://127.0.0.1:21648"
+database_path = "./dev/data/relay/nostr.db"
+
+[listings]
+country_shard_size = 1000
+profile_shard_size = 200

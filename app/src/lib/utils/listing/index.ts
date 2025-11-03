@@ -5,7 +5,7 @@ import type { RadrootsEventsIndexedManifest } from "@radroots/events-indexed-bin
 
 export type ListingRoutesKind = "country" | "author" | "npub" | "nip05";
 
-const { RADROOTS_MARKET_RELAY_INDEXES_URL: idx_url } = _env;
+const { RADROOTS_MARKET_INDEXES_URL: idx_url } = _env;
 
 export type ListingIndexedData = {
     manifest: RadrootsEventsIndexedManifest;

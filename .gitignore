@@ -38,3 +38,5 @@ justfile
 # dev
 *dev*.toml
 *dev*.json
+dev/data/
+dev/logs/

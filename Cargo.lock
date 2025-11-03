@@ -856,22 +856,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indexer-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "nostr",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "sled",
- "thiserror 1.0.69",
- "tracing",
-]
-
-[[package]]
 name = "inout"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1326,20 +1310,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "radroots-market-relay-indexer"
+name = "radroots-market-indexer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "clap",
  "config",
- "indexer-utils",
+ "nostr",
  "once_cell",
  "radroots-core",
  "radroots-events",
  "radroots-events-indexed",
  "regex",
+ "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
+ "sled",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
