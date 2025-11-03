@@ -82,8 +82,8 @@ export async function load_profile_indexed(
     );
 
     const listings = await fetch_listings(fetch_fn, kind, key);
-    const listingIds = listings.map((m) => m.id.toLowerCase());
-    const listing_comments = await fetch_comments_for_roots(fetch_fn, listingIds);
+    const listing_ids = listings.map((m) => m.id.toLowerCase());
+    const listing_comments = await fetch_comments_for_roots(fetch_fn, listing_ids);
 
     const public_key = profile.author;
     const npub = lib_nostr_npub_encode(public_key);
