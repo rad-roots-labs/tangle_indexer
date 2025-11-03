@@ -1,7 +1,9 @@
+pub mod comment;
 pub mod listing;
 pub mod profile;
 pub mod reaction;
 
+pub use comment::ToRadrootsCommentEventIndex;
 pub use listing::ToRadrootsListingEventIndex;
 pub use profile::ToRadrootsProfileEventIndex;
 pub use reaction::ToRadrootsReactionEventIndex;

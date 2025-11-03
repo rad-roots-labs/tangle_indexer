@@ -25,12 +25,14 @@ pub mod audit;
 #[cfg(not(feature = "audit"))]
 pub mod audit {
     use radroots_events::{
-        listing::models::RadrootsListingEventIndex, profile::models::RadrootsProfileEventIndex,
+        comment::models::RadrootsCommentEventIndex, listing::models::RadrootsListingEventIndex,
+        profile::models::RadrootsProfileEventIndex,
     };
 
     pub fn log_indexer_event(_: &crate::relay::event::RelayIndexerEvent) {}
     pub fn log_profile_event(_: &RadrootsProfileEventIndex) {}
     pub fn log_listing_event(_: &RadrootsListingEventIndex) {}
+    pub fn log_comment_event(_: &RadrootsCommentEventIndex) {}
 }
 
 use crate::{
@@ -38,8 +40,8 @@ use crate::{
         indexer::{
             kind::IndexerEventKind,
             models::{
-                EventIndexes, EventListingIndexes, EventProfileIndexes, EventReactionIndexes,
-                WriteEventIndexes,
+                EventCommentIndexes, EventIndexes, EventListingIndexes, EventProfileIndexes,
+                EventReactionIndexes, WriteEventIndexes,
             },
         },
         resolvers::profile::ProfileResolver,
@@ -59,6 +61,7 @@ pub async fn run(settings: Settings) -> Result<()> {
     let tree_events_profile = "profile_events";
     let tree_events_listing = "listing_events";
     let tree_events_reaction = "reaction_events";
+    let tree_events_comment = "comment_events";
     let tree_stats = "stats";
 
     let last_created_at_db: u32 = db_idx
@@ -77,8 +80,7 @@ pub async fn run(settings: Settings) -> Result<()> {
         .join(", ");
 
     let relay_query = format!(
-        "SELECT hex(event_hash), hex(author), created_at, kind, content \
-         FROM event WHERE kind IN ({}) AND created_at > ?",
+        "SELECT hex(event_hash), hex(author), created_at, kind, content FROM event WHERE kind IN ({}) AND created_at > ?",
         event_kinds
     );
 
@@ -108,7 +110,6 @@ pub async fn run(settings: Settings) -> Result<()> {
 
         let mut need_rebuild_listing = false;
 
-        // Handle Profile Events
         if let Some(profile_events) = records_kind.remove(&IndexerEventKind::Profile) {
             if !profile_events.is_empty() {
                 for ev in &profile_events {
@@ -150,11 +151,9 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
-        // Load current profile data (used for listings and reactions)
         let raw_profile_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_profile)?;
         let profiles = ProfileResolver::from_metadata(&raw_profile_events);
 
-        // Handle Listing Events
         if let Some(listing_events) = records_kind.remove(&IndexerEventKind::Listing) {
             if !listing_events.is_empty() {
                 for ev in &listing_events {
@@ -195,7 +194,6 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
-        // Handle Reaction Events
         if let Some(reaction_events) = records_kind.remove(&IndexerEventKind::Reaction) {
             if !reaction_events.is_empty() {
                 for ev in &reaction_events {
@@ -235,7 +233,45 @@ pub async fn run(settings: Settings) -> Result<()> {
             }
         }
 
-        // If new profiles or listings were written, rebuild the listing indexes
+        if let Some(comment_events) = records_kind.remove(&IndexerEventKind::Comment) {
+            if !comment_events.is_empty() {
+                for ev in &comment_events {
+                    last_created_at = last_created_at.max(ev.created_at);
+                    let id = &ev.id;
+                    let hash = &ev.hash;
+                    let skip = if let Some(old) = db_idx.get_raw(tree_raw, id)? {
+                        old.as_ref() == hash.as_bytes()
+                    } else {
+                        false
+                    };
+                    if skip {
+                        continue;
+                    }
+                    db_idx.insert(tree_events_comment, id, ev)?;
+                    db_idx.insert_raw(tree_raw, id, hash.as_bytes())?;
+                }
+
+                db_idx.insert_raw(
+                    tree_stats,
+                    "last_created_at",
+                    &last_created_at.to_be_bytes(),
+                )?;
+                db_idx.flush()?;
+
+                let raw_comment_events: Vec<RelayIndexerEvent> =
+                    db_idx.get_all(tree_events_comment)?;
+                let comment_indexes =
+                    EventCommentIndexes::build_with_profiles(&raw_comment_events, &profiles)?;
+                let mut updated_comment = Vec::new();
+                comment_indexes.write(&settings, &mut updated_comment)?;
+                info!(
+                    written = updated_comment.len(),
+                    "Written {} comment index files",
+                    updated_comment.len()
+                );
+            }
+        }
+
         if need_rebuild_listing {
             let raw_listing_events: Vec<RelayIndexerEvent> = db_idx.get_all(tree_events_listing)?;
             let listing_indexes =
@@ -249,7 +285,6 @@ pub async fn run(settings: Settings) -> Result<()> {
             );
         }
 
-        // Sleep between runs based on configuration
         let elapsed = iteration_start.elapsed();
         let interval = Duration::from_secs(settings.indexer.flush_interval);
         let delay = interval.saturating_sub(elapsed);

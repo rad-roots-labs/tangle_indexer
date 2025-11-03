@@ -1,7 +1,9 @@
+pub mod comment;
 pub mod listing;
 pub mod profile;
 pub mod reaction;
 
+pub use comment::EventCommentIndexes;
 pub use listing::EventListingIndexes;
 pub use profile::EventProfileIndexes;
 pub use reaction::EventReactionIndexes;

@@ -38,4 +38,4 @@ export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     return data;
 }
 
-export const prerender = idx_url ? true : false;
+export const prerender = true;

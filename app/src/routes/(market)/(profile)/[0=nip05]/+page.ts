@@ -15,4 +15,4 @@ export const load: PageLoad = async ({ fetch, params }) => {
     return load_profile_indexed(fetch, "nip05", nip05);
 };
 
-export const prerender = idx_url ? true : false;
+export const prerender = true;

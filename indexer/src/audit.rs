@@ -10,6 +10,7 @@ use tracing::info;
 
 use crate::domain::resolvers::profile::ProfileResolver;
 use crate::relay::event::RelayIndexerEvent;
+use radroots_events::comment::models::RadrootsCommentEventIndex;
 use radroots_events::listing::models::RadrootsListingEventIndex;
 use radroots_events::profile::models::RadrootsProfileEventIndex;
 
@@ -383,6 +384,72 @@ pub fn log_listing_event(evt: &RadrootsListingEventIndex) {
             created_at = evt.event.created_at,
             processed_json = %json,
             "AUDIT: processed listing"
+        );
+    }
+}
+
+#[inline]
+pub fn log_comment_event(evt: &RadrootsCommentEventIndex) {
+    let need_npub = STATE
+        .read()
+        .ok()
+        .map(|s| !s.filter.npubs.is_empty())
+        .unwrap_or(false);
+    let npub_opt = if need_npub {
+        public_key_to_npub(&evt.event.author).ok()
+    } else {
+        None
+    };
+
+    let (need_full, need_local) = STATE
+        .read()
+        .ok()
+        .map(|s| {
+            (
+                !s.filter.nip05_full.is_empty(),
+                !s.filter.nip05_local.is_empty(),
+            )
+        })
+        .unwrap_or((false, false));
+
+    let (nip05_full_opt, nip05_local_opt) = if need_full || need_local {
+        if let Ok(s) = STATE.read() {
+            if let Some(res) = s.resolver.as_ref() {
+                let local = res
+                    .nip05_for_author(&evt.event.author)
+                    .map(|s| s.to_string());
+                (None, local)
+            } else {
+                (None, None)
+            }
+        } else {
+            (None, None)
+        }
+    } else {
+        (None, None)
+    };
+
+    if !should_log(
+        &evt.event.author,
+        evt.event.kind as u64,
+        evt.event.created_at,
+        &evt.event.content,
+        npub_opt,
+        nip05_full_opt,
+        nip05_local_opt,
+    ) {
+        return;
+    }
+
+    if let Ok(json) = serde_json::to_string(evt) {
+        info!(
+            target = "audit",
+            kind = evt.event.kind,
+            id = %evt.event.id,
+            author = %evt.event.author,
+            created_at = evt.event.created_at,
+            processed_json = %json,
+            "AUDIT: processed comment"
         );
     }
 }

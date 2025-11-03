@@ -43,3 +43,11 @@ pub const REACTION_INDEX_DIRECTORY: [IndexerKey; 5] = [
     IndexerKey::Npub,
     IndexerKey::Nip05,
 ];
+
+pub const COMMENT_INDEX_DIRECTORY: [IndexerKey; 5] = [
+    IndexerKey::Id,
+    IndexerKey::RootId,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];

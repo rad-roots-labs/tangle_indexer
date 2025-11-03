@@ -4,7 +4,8 @@ use std::fmt;
 use std::path::PathBuf;
 
 use crate::domain::indexer::key::{
-    IndexerKey, LISTING_INDEX_DIRECTORY, PROFILE_INDEX_DIRECTORY, REACTION_INDEX_DIRECTORY,
+    IndexerKey, COMMENT_INDEX_DIRECTORY, LISTING_INDEX_DIRECTORY, PROFILE_INDEX_DIRECTORY,
+    REACTION_INDEX_DIRECTORY,
 };
 use crate::utils::io::{paths_join, PathsError};
 
@@ -13,13 +14,15 @@ pub enum IndexerEventKind {
     Profile,
     Reaction,
     Listing,
+    Comment,
 }
 
 impl IndexerEventKind {
-    pub const ALL: [IndexerEventKind; 3] = [
+    pub const ALL: [IndexerEventKind; 4] = [
         IndexerEventKind::Profile,
         IndexerEventKind::Reaction,
         IndexerEventKind::Listing,
+        IndexerEventKind::Comment,
     ];
 
     pub const fn as_u64(self) -> u64 {
@@ -27,6 +30,7 @@ impl IndexerEventKind {
             IndexerEventKind::Profile => 0,
             IndexerEventKind::Reaction => 7,
             IndexerEventKind::Listing => 30402,
+            IndexerEventKind::Comment => 1111,
         }
     }
 
@@ -35,6 +39,7 @@ impl IndexerEventKind {
             IndexerEventKind::Profile => &PROFILE_INDEX_DIRECTORY,
             IndexerEventKind::Reaction => &REACTION_INDEX_DIRECTORY,
             IndexerEventKind::Listing => &LISTING_INDEX_DIRECTORY,
+            IndexerEventKind::Comment => &COMMENT_INDEX_DIRECTORY,
         }
     }
 
@@ -86,6 +91,7 @@ impl TryFrom<u64> for IndexerEventKind {
             0 => Ok(IndexerEventKind::Profile),
             7 => Ok(IndexerEventKind::Reaction),
             30402 => Ok(IndexerEventKind::Listing),
+            1111 => Ok(IndexerEventKind::Comment),
             other => Err(IndexerEventKindParseError(other)),
         }
     }
