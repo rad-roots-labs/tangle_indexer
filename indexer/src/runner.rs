@@ -42,7 +42,7 @@ const TREE_EVENTS_JOB_RESULT: &str = "job_result_events";
 const TREE_EVENTS_JOB_FEEDBACK: &str = "job_feedback_events";
 const TREE_STATS: &str = "stats";
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CursorMode {
     RowId,
     CreatedAt,
@@ -138,6 +138,107 @@ impl EventBatch {
     }
 }
 
+struct RelayQueries {
+    created: String,
+    rowid: String,
+}
+
+fn build_relay_queries() -> RelayQueries {
+    let relay_kind_filter = IndexerEventKind::relay_kind_filter_sql();
+    let created = format!(
+        "SELECT hex(event_hash), hex(author), created_at, kind, content FROM event WHERE ({}) AND (created_at > ? OR (created_at = ? AND hex(event_hash) > ?)) ORDER BY created_at ASC, hex(event_hash) ASC",
+        relay_kind_filter
+    );
+    let rowid = format!(
+        "SELECT rowid, hex(event_hash), hex(author), created_at, kind, content FROM event WHERE ({}) AND rowid > ? ORDER BY rowid ASC",
+        relay_kind_filter
+    );
+    RelayQueries { created, rowid }
+}
+
+fn resolve_cursor_mode(relay_db: &rusqlite::Connection, rowid_query: &str) -> CursorMode {
+    match sqlite_stmt(relay_db, rowid_query) {
+        Ok(_) => CursorMode::RowId,
+        Err(err) => {
+            warn!(
+                error = %err,
+                "Rowid cursor unavailable, falling back to created_at cursor"
+            );
+            CursorMode::CreatedAt
+        }
+    }
+}
+
+fn load_records(
+    relay_db: &rusqlite::Connection,
+    mode: CursorMode,
+    queries: &RelayQueries,
+    cursor: &CursorState,
+) -> Result<Vec<RelayEventRecord>> {
+    match mode {
+        CursorMode::RowId => {
+            let mut stmt = sqlite_stmt(relay_db, &queries.rowid)
+                .context("Could not prepare rowid event query")?;
+            let rows = stmt.query_map(
+                params![cursor.last_rowid],
+                RelayEventRecord::from_row_with_rowid,
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .context("collecting RelayEventRecord rows")
+        }
+        CursorMode::CreatedAt => {
+            let mut stmt = sqlite_stmt(relay_db, &queries.created)
+                .context("Could not prepare created_at event query")?;
+            let rows = stmt.query_map(
+                params![
+                    cursor.last_created_at,
+                    cursor.last_created_at,
+                    &cursor.last_event_hash
+                ],
+                RelayEventRecord::from_row,
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .context("collecting RelayEventRecord rows")
+        }
+    }
+}
+
+fn update_cursor(
+    db_idx: &IndexerDb,
+    cursor: &mut CursorState,
+    mode: CursorMode,
+    batch: &mut EventBatch,
+) -> Result<bool> {
+    let mut cursor_updated = false;
+    match mode {
+        CursorMode::CreatedAt => {
+            if let Some((created_at, event_hash)) = batch.next_created.take() {
+                cursor.last_created_at = created_at;
+                cursor.last_event_hash = event_hash;
+                db_idx.insert_raw(
+                    TREE_STATS,
+                    "last_created_at",
+                    &cursor.last_created_at.to_be_bytes(),
+                )?;
+                db_idx.insert_raw(
+                    TREE_STATS,
+                    "last_event_hash",
+                    cursor.last_event_hash.as_bytes(),
+                )?;
+                cursor_updated = true;
+            }
+        }
+        CursorMode::RowId => {
+            if let Some(rowid) = batch.next_rowid.take() {
+                cursor.last_rowid = rowid;
+                db_idx.insert_raw(TREE_STATS, "last_rowid", &cursor.last_rowid.to_be_bytes())?;
+                cursor_updated = true;
+            }
+        }
+    }
+    Ok(cursor_updated)
+}
+
 #[derive(Default)]
 struct ChangeFlags {
     profiles: bool,
@@ -223,16 +324,7 @@ fn write_indexes<T: WriteEventIndexes>(
 pub async fn run(settings: Settings) -> Result<()> {
     let db_idx = IndexerDb::open(&format!("{}/indexer_db", settings.indexer.data_dir))?;
     let mut cursor = CursorState::load(&db_idx)?;
-
-    let relay_kind_filter = IndexerEventKind::relay_kind_filter_sql();
-    let relay_query_created = format!(
-        "SELECT hex(event_hash), hex(author), created_at, kind, content FROM event WHERE ({}) AND (created_at > ? OR (created_at = ? AND hex(event_hash) > ?)) ORDER BY created_at ASC, hex(event_hash) ASC",
-        relay_kind_filter
-    );
-    let relay_query_rowid = format!(
-        "SELECT rowid, hex(event_hash), hex(author), created_at, kind, content FROM event WHERE ({}) AND rowid > ? ORDER BY rowid ASC",
-        relay_kind_filter
-    );
+    let relay_queries = build_relay_queries();
 
     let mut profiles = ProfileResolver::default();
     let mut profiles_loaded = false;
@@ -247,43 +339,11 @@ pub async fn run(settings: Settings) -> Result<()> {
             )
         })?;
         if cursor_mode.is_none() {
-            cursor_mode = match sqlite_stmt(&relay_db, &relay_query_rowid) {
-                Ok(_) => Some(CursorMode::RowId),
-                Err(err) => {
-                    warn!(
-                        error = %err,
-                        "Rowid cursor unavailable, falling back to created_at cursor"
-                    );
-                    Some(CursorMode::CreatedAt)
-                }
-            };
+            cursor_mode = Some(resolve_cursor_mode(&relay_db, &relay_queries.rowid));
         }
 
         let mode = cursor_mode.unwrap_or(CursorMode::CreatedAt);
-        let records: Vec<RelayEventRecord> = match mode {
-            CursorMode::RowId => {
-                let mut stmt = sqlite_stmt(&relay_db, &relay_query_rowid)
-                    .context("Could not prepare rowid event query")?;
-                let rows =
-                    stmt.query_map(params![cursor.last_rowid], RelayEventRecord::from_row_with_rowid)?;
-                rows.collect::<Result<Vec<_>, _>>()
-                    .context("collecting RelayEventRecord rows")?
-            }
-            CursorMode::CreatedAt => {
-                let mut stmt = sqlite_stmt(&relay_db, &relay_query_created)
-                    .context("Could not prepare created_at event query")?;
-                let rows = stmt.query_map(
-                    params![
-                        cursor.last_created_at,
-                        cursor.last_created_at,
-                        &cursor.last_event_hash
-                    ],
-                    RelayEventRecord::from_row,
-                )?;
-                rows.collect::<Result<Vec<_>, _>>()
-                    .context("collecting RelayEventRecord rows")?
-            }
-        };
+        let records = load_records(&relay_db, mode, &relay_queries, &cursor)?;
 
         let mut batch = EventBatch::from_records(records)?;
         info!(record_count = batch.record_count, "Loaded relay records");
@@ -438,37 +498,7 @@ pub async fn run(settings: Settings) -> Result<()> {
             write_indexes(&settings, Some("listing"), listing_indexes)?;
         }
 
-        let mut cursor_updated = false;
-        match mode {
-            CursorMode::CreatedAt => {
-                if let Some((created_at, event_hash)) = batch.next_created.take() {
-                    cursor.last_created_at = created_at;
-                    cursor.last_event_hash = event_hash;
-                    db_idx.insert_raw(
-                        TREE_STATS,
-                        "last_created_at",
-                        &cursor.last_created_at.to_be_bytes(),
-                    )?;
-                    db_idx.insert_raw(
-                        TREE_STATS,
-                        "last_event_hash",
-                        cursor.last_event_hash.as_bytes(),
-                    )?;
-                    cursor_updated = true;
-                }
-            }
-            CursorMode::RowId => {
-                if let Some(rowid) = batch.next_rowid.take() {
-                    cursor.last_rowid = rowid;
-                    db_idx.insert_raw(
-                        TREE_STATS,
-                        "last_rowid",
-                        &cursor.last_rowid.to_be_bytes(),
-                    )?;
-                    cursor_updated = true;
-                }
-            }
-        }
+        let cursor_updated = update_cursor(&db_idx, &mut cursor, mode, &mut batch)?;
         if cursor_updated {
             db_idx.flush()?;
         }
@@ -482,5 +512,145 @@ pub async fn run(settings: Settings) -> Result<()> {
             "Iteration complete"
         );
         tokio::time::sleep(delay).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_relay_queries, parse_string, parse_u32, parse_u64, resolve_cursor_mode, update_cursor,
+        CursorMode, CursorState, EventBatch,
+    };
+    use crate::domain::indexer::kind::IndexerEventKind;
+    use crate::relay::event::RelayRawEvent;
+    use crate::relay::record::RelayEventRecord;
+    use crate::utils::db::IndexerDb;
+    use radroots_events::kinds::KIND_JOB_REQUEST_MIN;
+    use std::collections::HashMap;
+    use tempfile::tempdir;
+
+    fn make_record(rowid: u64, event_hash: &str, author: &str, created_at: u32, kind: u32) -> RelayEventRecord {
+        let raw = RelayRawEvent {
+            id: event_hash.to_string(),
+            pubkey: author.to_string(),
+            created_at,
+            kind,
+            tags: Vec::new(),
+            content: "hello".to_string(),
+            sig: "sig".to_string(),
+        };
+        let content = serde_json::to_string(&raw).expect("json");
+        RelayEventRecord {
+            rowid: Some(rowid),
+            event_hash: event_hash.to_string(),
+            author: author.to_string(),
+            created_at,
+            kind: IndexerEventKind::try_from(kind as u64).expect("kind"),
+            content,
+        }
+    }
+
+    #[test]
+    fn parse_helpers_reject_invalid_lengths() {
+        assert!(parse_u32(&[0u8; 3], "u32").is_none());
+        assert!(parse_u64(&[0u8; 7], "u64").is_none());
+    }
+
+    #[test]
+    fn parse_string_rejects_invalid_utf8() {
+        assert!(parse_string(&[0xff, 0xfe], "str").is_none());
+    }
+
+    #[test]
+    fn event_batch_groups_job_request_kinds() {
+        let author = "a".repeat(64);
+        let rec = make_record(
+            1,
+            "1".repeat(64).as_str(),
+            &author,
+            10,
+            KIND_JOB_REQUEST_MIN + 1,
+        );
+        let batch = EventBatch::from_records(vec![rec]).expect("batch");
+        assert!(batch
+            .events_by_kind
+            .contains_key(&IndexerEventKind::JobRequest(KIND_JOB_REQUEST_MIN)));
+    }
+
+    #[test]
+    fn resolve_cursor_mode_falls_back_without_rowid() {
+        let conn = rusqlite::Connection::open_in_memory().expect("conn");
+        conn.execute(
+            "CREATE TABLE event (event_hash BLOB PRIMARY KEY, author BLOB, created_at INTEGER, kind INTEGER, content TEXT) WITHOUT ROWID",
+            [],
+        )
+        .expect("create table");
+        let queries = build_relay_queries();
+        let mode = resolve_cursor_mode(&conn, &queries.rowid);
+        assert_eq!(mode, CursorMode::CreatedAt);
+    }
+
+    #[test]
+    fn resolve_cursor_mode_uses_rowid_when_available() {
+        let conn = rusqlite::Connection::open_in_memory().expect("conn");
+        conn.execute(
+            "CREATE TABLE event (event_hash BLOB, author BLOB, created_at INTEGER, kind INTEGER, content TEXT)",
+            [],
+        )
+        .expect("create table");
+        let queries = build_relay_queries();
+        let mode = resolve_cursor_mode(&conn, &queries.rowid);
+        assert_eq!(mode, CursorMode::RowId);
+    }
+
+    #[test]
+    fn update_cursor_writes_created_at_state() {
+        let dir = tempdir().expect("tempdir");
+        let db_idx = IndexerDb::open(dir.path().join("db").to_str().expect("path"))
+            .expect("open db");
+        let mut cursor = CursorState::default();
+        let mut batch = EventBatch {
+            events_by_kind: HashMap::new(),
+            next_created: Some((42, "hash".to_string())),
+            next_rowid: None,
+            record_count: 0,
+        };
+
+        let updated = update_cursor(&db_idx, &mut cursor, CursorMode::CreatedAt, &mut batch)
+            .expect("update cursor");
+        assert!(updated);
+        assert_eq!(cursor.last_created_at, 42);
+        assert_eq!(cursor.last_event_hash, "hash");
+        db_idx.flush().expect("flush");
+        let stored = db_idx
+            .get_raw("stats", "last_created_at")
+            .expect("get raw")
+            .expect("value");
+        assert_eq!(stored.as_ref(), &42u32.to_be_bytes());
+    }
+
+    #[test]
+    fn update_cursor_writes_rowid_state() {
+        let dir = tempdir().expect("tempdir");
+        let db_idx = IndexerDb::open(dir.path().join("db").to_str().expect("path"))
+            .expect("open db");
+        let mut cursor = CursorState::default();
+        let mut batch = EventBatch {
+            events_by_kind: HashMap::new(),
+            next_created: None,
+            next_rowid: Some(7),
+            record_count: 0,
+        };
+
+        let updated = update_cursor(&db_idx, &mut cursor, CursorMode::RowId, &mut batch)
+            .expect("update cursor");
+        assert!(updated);
+        assert_eq!(cursor.last_rowid, 7);
+        db_idx.flush().expect("flush");
+        let stored = db_idx
+            .get_raw("stats", "last_rowid")
+            .expect("get raw")
+            .expect("value");
+        assert_eq!(stored.as_ref(), &7u64.to_be_bytes());
     }
 }

@@ -47,3 +47,32 @@ pub fn get_tag_value<'a>(
         ))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_nip05;
+
+    #[test]
+    fn normalize_nip05_lowercases_and_extracts_parts() {
+        let (full, local, index_key) = normalize_nip05("Alice@Radroots.Market");
+        assert_eq!(full, "alice@radroots.market");
+        assert_eq!(local, "alice");
+        assert_eq!(index_key, "alice");
+    }
+
+    #[test]
+    fn normalize_nip05_without_domain_keeps_value() {
+        let (full, local, index_key) = normalize_nip05("User");
+        assert_eq!(full, "user");
+        assert_eq!(local, "user");
+        assert_eq!(index_key, "user");
+    }
+
+    #[test]
+    fn normalize_nip05_non_radroots_domain_keeps_index_key() {
+        let (full, local, index_key) = normalize_nip05("bob@example.com");
+        assert_eq!(full, "bob@example.com");
+        assert_eq!(local, "bob");
+        assert_eq!(index_key, "bob@example.com");
+    }
+}

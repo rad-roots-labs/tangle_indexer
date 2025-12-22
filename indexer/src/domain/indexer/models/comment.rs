@@ -146,7 +146,11 @@ impl WriteEventIndexes for EventCommentIndexes {
 
         {
             let idxs_root = base.join("events.json");
-            let ids: Vec<&String> = self.events.iter().map(|e| &e.event.id).collect();
+            let ids = super::sorted_event_ids(
+                &self.events,
+                |event| event.metadata.published_at,
+                |event| &event.event.id,
+            );
             write_json_if_changed(&idxs_root, &ids, updated)?;
         }
 

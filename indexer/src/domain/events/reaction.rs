@@ -155,3 +155,36 @@ impl ToRadrootsReactionEventIndex for RelayIndexerEvent {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_reaction_from_tags;
+
+    #[test]
+    fn reaction_parses_event_reference() {
+        let tags = vec![
+            vec!["e".to_string(), "root123".to_string()],
+            vec!["k".to_string(), "1".to_string()],
+            vec!["p".to_string(), "a".repeat(64)],
+        ];
+        let reaction = parse_reaction_from_tags(&tags, "+").expect("parse reaction");
+        assert_eq!(reaction.root.id, "root123");
+        assert_eq!(reaction.root.kind, 1);
+    }
+
+    #[test]
+    fn reaction_parses_address_reference() {
+        let pubkey = "b".repeat(64);
+        let addr = format!("30023:{}:dtag", pubkey);
+        let tags = vec![
+            vec!["e".to_string(), "root123".to_string()],
+            vec!["a".to_string(), addr.clone()],
+            vec!["k".to_string(), "30023".to_string()],
+            vec!["p".to_string(), pubkey.clone()],
+        ];
+        let reaction = parse_reaction_from_tags(&tags, "+").expect("parse reaction");
+        assert_eq!(reaction.root.kind, 30023);
+        assert_eq!(reaction.root.author, pubkey);
+        assert_eq!(reaction.root.d_tag.as_deref(), Some("dtag"));
+    }
+}

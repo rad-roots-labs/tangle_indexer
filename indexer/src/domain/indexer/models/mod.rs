@@ -23,6 +23,23 @@ use anyhow::Result;
 use std::path::PathBuf;
 use thiserror::Error;
 
+fn sorted_event_ids<'a, E, FP, FI>(
+    events: &'a [E],
+    published_at: FP,
+    id: FI,
+) -> Vec<&'a String>
+where
+    FP: Fn(&E) -> u32,
+    FI: Fn(&E) -> &String,
+{
+    let mut items: Vec<(u32, &String)> = events
+        .iter()
+        .map(|event| (published_at(event), id(event)))
+        .collect();
+    items.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(b.1)));
+    items.into_iter().map(|(_, id)| id).collect()
+}
+
 #[derive(Debug, Error)]
 pub enum NostrEventsStaticError {
     #[error("Failed to build static indexes: {0}")]

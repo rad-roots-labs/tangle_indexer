@@ -138,7 +138,11 @@ impl WriteEventIndexes for EventProfileIndexes {
         fs_mkdir(&[&base])?;
 
         let idxs_root = base.join("events.json");
-        let ids: Vec<&String> = self.events.iter().map(|e| &e.event.id).collect();
+        let ids = super::sorted_event_ids(
+            &self.events,
+            |event| event.metadata.published_at,
+            |event| &event.event.id,
+        );
         write_json_if_changed(&idxs_root, &ids, updated)?;
 
         for &subdir in Self::subdirs().iter() {
@@ -240,6 +244,7 @@ impl WriteEventIndexes for EventProfileIndexes {
 mod tests {
     use super::EventProfileIndexes;
     use crate::domain::indexer::kind::IndexerEventKind;
+    use crate::domain::indexer::models::EventIndexes;
     use crate::relay::event::RelayIndexerEvent;
 
     fn make_profile_event(id: &str, author: &str, created_at: u32, name: &str) -> RelayIndexerEvent {

@@ -325,4 +325,16 @@ mod tests {
         assert_eq!(comment.parent.kind, comment.root.kind);
         assert_eq!(comment.parent.author, comment.root.author);
     }
+
+    #[test]
+    fn comment_parses_legacy_root_and_parent() {
+        let tags = vec![
+            vec!["e_root".to_string(), "root123".to_string()],
+            vec!["e_prev".to_string(), "parent456".to_string()],
+        ];
+
+        let comment = parse_comment_from_tags(&tags, "hello").expect("parse comment");
+        assert_eq!(comment.root.id, "root123");
+        assert_eq!(comment.parent.id, "parent456");
+    }
 }

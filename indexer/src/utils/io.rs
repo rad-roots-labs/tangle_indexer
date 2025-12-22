@@ -130,7 +130,9 @@ pub fn fs_write_rss(path: &Path, content: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::safe_path_segment;
+    use super::{safe_path_segment, write_json_if_changed};
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn safe_path_segment_rejects_traversal() {
@@ -147,5 +149,30 @@ mod tests {
             safe_path_segment("user@example.com"),
             Some("user@example.com".to_string())
         );
+    }
+
+    #[test]
+    fn write_json_if_changed_is_idempotent() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("data.json");
+        let mut updated = Vec::new();
+
+        let hash_a = write_json_if_changed(&path, &vec![1u32, 2, 3], &mut updated)
+            .expect("write json");
+        assert_eq!(updated.len(), 1);
+        let first = fs::read_to_string(&path).expect("read data");
+
+        updated.clear();
+        let hash_b = write_json_if_changed(&path, &vec![1u32, 2, 3], &mut updated)
+            .expect("write json");
+        assert_eq!(hash_a, hash_b);
+        assert!(updated.is_empty());
+        let second = fs::read_to_string(&path).expect("read data");
+        assert_eq!(first, second);
+
+        updated.clear();
+        let _hash_c = write_json_if_changed(&path, &vec![1u32, 2, 4], &mut updated)
+            .expect("write json");
+        assert_eq!(updated.len(), 1);
     }
 }
