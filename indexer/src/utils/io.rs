@@ -1,9 +1,11 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::debug;
+
+use crate::utils::crypto::compute_hash;
 
 #[derive(Debug, Error)]
 pub enum PathsError {
@@ -28,6 +30,21 @@ where
         path.push(seg);
     }
     Ok(path)
+}
+
+pub fn safe_path_segment(segment: &str) -> Option<String> {
+    let mut components = Path::new(segment).components();
+    match (components.next(), components.next()) {
+        (Some(std::path::Component::Normal(comp)), None) => {
+            let value = comp.to_string_lossy();
+            if value.is_empty() {
+                None
+            } else {
+                Some(value.into_owned())
+            }
+        }
+        _ => None,
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -77,8 +94,58 @@ pub fn write_hash(path: &Path, hash: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn write_json_if_changed<T: serde::Serialize>(
+    path: &Path,
+    data: &T,
+    updated: &mut Vec<PathBuf>,
+) -> Result<String> {
+    let hash = compute_hash(data)
+        .with_context(|| format!("Failed to hash JSON for {}", path.display()))?;
+    let hash_path = path.with_extension("sha256.txt");
+
+    let needs_write = if path.exists() && hash_path.exists() {
+        let stored = fs::read_to_string(&hash_path)
+            .with_context(|| format!("Failed to read {}", hash_path.display()))?;
+        stored.trim() != hash
+    } else {
+        true
+    };
+
+    if needs_write {
+        write_json(path, data)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        write_hash(path, &hash)
+            .with_context(|| format!("Failed to write hash for {}", path.display()))?;
+        updated.push(path.to_path_buf());
+    }
+
+    Ok(hash)
+}
+
 pub fn fs_write_rss(path: &Path, content: &str) -> Result<()> {
     let mut file = File::create(path)?;
     file.write_all(content.as_bytes())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_path_segment;
+
+    #[test]
+    fn safe_path_segment_rejects_traversal() {
+        assert!(safe_path_segment("..").is_none());
+        assert!(safe_path_segment(".").is_none());
+        assert!(safe_path_segment("a/b").is_none());
+        assert!(safe_path_segment("/abs").is_none());
+    }
+
+    #[test]
+    fn safe_path_segment_accepts_normal() {
+        assert_eq!(safe_path_segment("alpha"), Some("alpha".to_string()));
+        assert_eq!(
+            safe_path_segment("user@example.com"),
+            Some("user@example.com".to_string())
+        );
+    }
 }

@@ -1,11 +1,11 @@
-use crate::domain::indexer::key::{IndexerKey, REACTION_INDEX_DIRECTORY};
+use crate::domain::indexer::key::{IndexerKey, JOB_RESULT_INDEX_DIRECTORY};
 use crate::utils::io::{fs_mkdir, safe_path_segment, write_json_if_changed};
 use crate::utils::nostr::public_key_to_npub;
 use crate::utils::strings::truncate_log;
 use crate::{
     audit,
     domain::{
-        events::reaction::ToRadrootsReactionEventIndex,
+        events::job_result::ToRadrootsJobResultEventIndex,
         indexer::{
             kind::IndexerEventKind,
             models::{EventIndexes, NostrEventsStaticError, WriteEventIndexes},
@@ -15,15 +15,16 @@ use crate::{
     relay::event::RelayIndexerEvent,
     Settings,
 };
-use radroots_events::reaction::{
-    RadrootsReactionEventIndex, RadrootsReactionEventMetadata,
+use radroots_events::job_result::{
+    RadrootsJobResultEventIndex, RadrootsJobResultEventMetadata,
 };
+use radroots_events::kinds::KIND_JOB_RESULT_MIN;
 use std::{collections::BTreeMap, path::PathBuf};
 use tracing::{instrument, warn};
 
 #[derive(Debug)]
-pub struct EventReactionIndexes {
-    events: Vec<RadrootsReactionEventIndex>,
+pub struct EventJobResultIndexes {
+    events: Vec<RadrootsJobResultEventIndex>,
     events_id: BTreeMap<String, usize>,
     root_ids: BTreeMap<String, Vec<String>>,
     author_ids: BTreeMap<String, Vec<String>>,
@@ -31,7 +32,7 @@ pub struct EventReactionIndexes {
     nip05_ids: BTreeMap<String, Vec<String>>,
 }
 
-impl EventReactionIndexes {
+impl EventJobResultIndexes {
     pub fn build_with_profiles(
         raw_events: &[RelayIndexerEvent],
         profiles: &ProfileResolver,
@@ -44,10 +45,9 @@ impl EventReactionIndexes {
         let mut nip05_ids: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
         for raw in raw_events {
-            match raw.to_radroots_reaction_event() {
+            match raw.to_radroots_job_result_event() {
                 Ok(evt) => {
                     audit::log_indexer_event(&raw);
-
                     let id = evt.metadata.id.clone();
                     let author_hex = evt.metadata.author.to_lowercase();
 
@@ -59,7 +59,7 @@ impl EventReactionIndexes {
                         .ok();
                     let author_nip05 = profiles.nip05_for_author(&author_hex).map(str::to_owned);
 
-                    let root = evt.metadata.reaction.root.id.to_lowercase();
+                    let root = evt.metadata.job_result.request_event.id.to_lowercase();
 
                     events.push(evt);
                     let idx = events.len() - 1;
@@ -82,7 +82,7 @@ impl EventReactionIndexes {
                         content = %truncate_log(&raw.content, 1000),
                         tags = ?raw.tags,
                         error = %err,
-                        "Skipping malformed reaction event"
+                        "Skipping malformed job result event"
                     );
                 }
             }
@@ -90,7 +90,7 @@ impl EventReactionIndexes {
 
         let sort_ids = |ids: &mut Vec<String>,
                         map: &BTreeMap<String, usize>,
-                        events: &[RadrootsReactionEventIndex]| {
+                        events: &[RadrootsJobResultEventIndex]| {
             ids.sort_unstable_by(|a, b| {
                 let pa = map
                     .get(a)
@@ -128,11 +128,11 @@ impl EventReactionIndexes {
     }
 }
 
-impl EventIndexes for EventReactionIndexes {
+impl EventIndexes for EventJobResultIndexes {
     type Event = RelayIndexerEvent;
 
     fn subdirs() -> &'static [IndexerKey] {
-        &REACTION_INDEX_DIRECTORY
+        &JOB_RESULT_INDEX_DIRECTORY
     }
 
     #[instrument(skip(raw_events), fields(event_count = raw_events.len()))]
@@ -142,9 +142,10 @@ impl EventIndexes for EventReactionIndexes {
     }
 }
 
-impl WriteEventIndexes for EventReactionIndexes {
+impl WriteEventIndexes for EventJobResultIndexes {
     fn write(&self, settings: &Settings, updated: &mut Vec<PathBuf>) -> anyhow::Result<()> {
-        let base: PathBuf = IndexerEventKind::Reaction.base_path(&settings.indexer.data_dir)?;
+        let base: PathBuf =
+            IndexerEventKind::JobResult(KIND_JOB_RESULT_MIN).base_path(&settings.indexer.data_dir)?;
         fs_mkdir(&[&base])?;
 
         {
@@ -166,7 +167,7 @@ impl WriteEventIndexes for EventReactionIndexes {
             for (id, idx) in &self.events_id {
                 let id_lower = id.to_lowercase();
                 let Some(dir_key) = safe_path_segment(&id_lower) else {
-                    warn!(id = %id, "Skipping unsafe reaction id path segment");
+                    warn!(id = %id, "Skipping unsafe job result id path segment");
                     continue;
                 };
                 let dir = sub.join(dir_key);
@@ -189,12 +190,12 @@ impl WriteEventIndexes for EventReactionIndexes {
 
             for (root, ids) in &self.root_ids {
                 let Some(dir_key) = safe_path_segment(root) else {
-                    warn!(root = %root, "Skipping unsafe reaction root path segment");
+                    warn!(root = %root, "Skipping unsafe job result root path segment");
                     continue;
                 };
                 let dir = sub.join(dir_key);
                 fs_mkdir(&[&dir])?;
-                let metas: Vec<&RadrootsReactionEventMetadata> = ids
+                let metas: Vec<&RadrootsJobResultEventMetadata> = ids
                     .iter()
                     .filter_map(|id| self.events_id.get(id))
                     .map(|idx| &self.events[*idx].metadata)
@@ -216,12 +217,12 @@ impl WriteEventIndexes for EventReactionIndexes {
 
             for (author, ids) in &self.author_ids {
                 let Some(dir_key) = safe_path_segment(author) else {
-                    warn!(author = %author, "Skipping unsafe reaction author path segment");
+                    warn!(author = %author, "Skipping unsafe job result author path segment");
                     continue;
                 };
                 let dir = sub.join(dir_key);
                 fs_mkdir(&[&dir])?;
-                let metas: Vec<&RadrootsReactionEventMetadata> = ids
+                let metas: Vec<&RadrootsJobResultEventMetadata> = ids
                     .iter()
                     .filter_map(|id| self.events_id.get(id))
                     .map(|idx| &self.events[*idx].metadata)
@@ -243,12 +244,12 @@ impl WriteEventIndexes for EventReactionIndexes {
 
             for (npub, ids) in &self.npub_ids {
                 let Some(dir_key) = safe_path_segment(npub) else {
-                    warn!(npub = %npub, "Skipping unsafe reaction npub path segment");
+                    warn!(npub = %npub, "Skipping unsafe job result npub path segment");
                     continue;
                 };
                 let dir = sub.join(dir_key);
                 fs_mkdir(&[&dir])?;
-                let metas: Vec<&RadrootsReactionEventMetadata> = ids
+                let metas: Vec<&RadrootsJobResultEventMetadata> = ids
                     .iter()
                     .filter_map(|id| self.events_id.get(id))
                     .map(|idx| &self.events[*idx].metadata)
@@ -270,12 +271,12 @@ impl WriteEventIndexes for EventReactionIndexes {
 
             for (name, ids) in &self.nip05_ids {
                 let Some(dir_key) = safe_path_segment(name) else {
-                    warn!(nip05 = %name, "Skipping unsafe reaction nip05 path segment");
+                    warn!(nip05 = %name, "Skipping unsafe job result nip05 path segment");
                     continue;
                 };
                 let dir = sub.join(dir_key);
                 fs_mkdir(&[&dir])?;
-                let metas: Vec<&RadrootsReactionEventMetadata> = ids
+                let metas: Vec<&RadrootsJobResultEventMetadata> = ids
                     .iter()
                     .filter_map(|id| self.events_id.get(id))
                     .map(|idx| &self.events[*idx].metadata)

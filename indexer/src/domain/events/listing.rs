@@ -1,10 +1,10 @@
 use thiserror::Error;
 
 use radroots_events::{
-    listing::models::{
+    listing::{
         RadrootsListing, RadrootsListingEventIndex, RadrootsListingEventMetadata,
         RadrootsListingImage, RadrootsListingImageSize, RadrootsListingLocation,
-        RadrootsListingPrice, RadrootsListingProduct, RadrootsListingQuantity,
+        RadrootsListingProduct, RadrootsListingQuantity,
     },
     RadrootsNostrEvent,
 };
@@ -73,7 +73,7 @@ fn parse_listing_from_tags(
         }
     }
 
-    let mut prices: Vec<RadrootsListingPrice> = Vec::new();
+    let mut prices: Vec<radroots_core::RadrootsCoreQuantityPrice> = Vec::new();
     for t in tags
         .iter()
         .filter(|t| t.first().map(|k| k == "price").unwrap_or(false))
@@ -178,7 +178,7 @@ fn parse_listing_from_tags(
         None
     };
 
-    let images: Option<Vec<RadrootsListingImage>> = tags
+    let images = tags
         .iter()
         .filter(|t| t.first().map(|k| k == "img").unwrap_or(false))
         .map(|t| {
@@ -195,8 +195,8 @@ fn parse_listing_from_tags(
             };
             RadrootsListingImage { url, size }
         })
-        .collect::<Vec<_>>()
-        .into();
+        .collect::<Vec<_>>();
+    let images = if images.is_empty() { None } else { Some(images) };
 
     Ok(RadrootsListing {
         d_tag,
@@ -214,10 +214,9 @@ fn create_radroots_listing_event_metadata(
     author: String,
     published_at: u32,
     kind: u32,
-    _content: String,
-    tags: Vec<Vec<String>>,
+    tags: &[Vec<String>],
 ) -> Result<RadrootsListingEventMetadata, RadrootsListingEventIndexError> {
-    let listing = parse_listing_from_tags(&tags)?;
+    let listing = parse_listing_from_tags(tags)?;
     Ok(RadrootsListingEventMetadata {
         id,
         author,
@@ -229,34 +228,35 @@ fn create_radroots_listing_event_metadata(
 
 pub trait ToRadrootsListingEventIndex {
     fn to_radroots_listing_event(
-        self,
+        &self,
     ) -> Result<RadrootsListingEventIndex, RadrootsListingEventIndexError>;
 }
 
 impl ToRadrootsListingEventIndex for RelayIndexerEvent {
     fn to_radroots_listing_event(
-        self,
+        &self,
     ) -> Result<RadrootsListingEventIndex, RadrootsListingEventIndexError> {
         let kind_u32 = self.kind.as_u64() as u32;
+        let id = self.id.clone();
+        let author = self.author.clone();
 
         let metadata = create_radroots_listing_event_metadata(
-            self.id.clone(),
-            self.author.clone(),
+            id.clone(),
+            author.clone(),
             self.created_at,
             kind_u32,
-            self.content.clone(),
-            self.tags.clone(),
+            &self.tags,
         )?;
 
         Ok(RadrootsListingEventIndex {
             event: RadrootsNostrEvent {
-                id: self.id,
-                author: self.author,
+                id,
+                author,
                 created_at: self.created_at,
                 kind: kind_u32,
-                tags: self.tags,
-                content: self.content,
-                sig: self.sig,
+                tags: self.tags.clone(),
+                content: self.content.clone(),
+                sig: self.sig.clone(),
             },
             metadata,
         })

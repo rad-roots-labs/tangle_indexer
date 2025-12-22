@@ -13,6 +13,7 @@ audit = []
 [dependencies]
 radroots-core = { workspace = true }
 radroots-events = { workspace = true }
+radroots-events-codec = { workspace = true }
 radroots-events-indexed = { workspace = true }
 
 anyhow = { workspace = true }

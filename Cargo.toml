@@ -13,6 +13,7 @@ license = "AGPL-3.0"
 [workspace.dependencies]
 radroots-core = { path = "../crates/core" }
 radroots-events = { path = "../crates/events" }
+radroots-events-codec = { path = "../crates/events-codec" }
 radroots-events-indexed = { path = "../crates/events-indexed" }
 
 anyhow = { version = "1" }

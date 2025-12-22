@@ -36,7 +36,7 @@ pub fn compute_hash<T: Serialize>(value: &T) -> anyhow::Result<String> {
     let mut hasher = Sha256::new();
     {
         let writer = HasherWriter(&mut hasher);
-        serde_json::to_writer_pretty(writer, value)?;
+        serde_json::to_writer(writer, value)?;
     }
     Ok(format!("{:x}", hasher.finalize()))
 }

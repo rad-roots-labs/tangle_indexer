@@ -28,6 +28,20 @@ pub const PROFILE_INDEX_DIRECTORY: [IndexerKey; 4] = [
     IndexerKey::Npub,
 ];
 
+pub const POST_INDEX_DIRECTORY: [IndexerKey; 4] = [
+    IndexerKey::Id,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];
+
+pub const FOLLOW_INDEX_DIRECTORY: [IndexerKey; 4] = [
+    IndexerKey::Id,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];
+
 pub const LISTING_INDEX_DIRECTORY: [IndexerKey; 5] = [
     IndexerKey::Id,
     IndexerKey::Country,
@@ -45,6 +59,29 @@ pub const REACTION_INDEX_DIRECTORY: [IndexerKey; 5] = [
 ];
 
 pub const COMMENT_INDEX_DIRECTORY: [IndexerKey; 5] = [
+    IndexerKey::Id,
+    IndexerKey::RootId,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];
+
+pub const JOB_REQUEST_INDEX_DIRECTORY: [IndexerKey; 4] = [
+    IndexerKey::Id,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];
+
+pub const JOB_RESULT_INDEX_DIRECTORY: [IndexerKey; 5] = [
+    IndexerKey::Id,
+    IndexerKey::RootId,
+    IndexerKey::Author,
+    IndexerKey::Npub,
+    IndexerKey::Nip05,
+];
+
+pub const JOB_FEEDBACK_INDEX_DIRECTORY: [IndexerKey; 5] = [
     IndexerKey::Id,
     IndexerKey::RootId,
     IndexerKey::Author,

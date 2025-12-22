@@ -1,9 +1,8 @@
 use anyhow::Result;
 use radroots_events::{
-    profile::models::{RadrootsProfile, RadrootsProfileEventIndex, RadrootsProfileEventMetadata},
+    profile::{RadrootsProfile, RadrootsProfileEventIndex, RadrootsProfileEventMetadata},
     RadrootsNostrEvent,
 };
-use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::relay::event::RelayIndexerEvent;
@@ -21,18 +20,10 @@ pub enum RadrootsProfileEventIndexError {
 pub fn create_radroots_profile_event_metadata(
     id: String,
     author: String,
-    published_at: u64,
+    published_at: u32,
     kind: u32,
-    content: String,
-    tags: Vec<Vec<String>>,
+    content: &str,
 ) -> Result<RadrootsProfileEventMetadata, RadrootsProfileEventIndexError> {
-    let mut tag_map: HashMap<String, Vec<Vec<String>>> = HashMap::new();
-    for tag in tags {
-        if let Some(key) = tag.get(0).map(String::as_str) {
-            tag_map.entry(key.to_string()).or_default().push(tag);
-        }
-    }
-
     let profile: RadrootsProfile = serde_json::from_str(&content)?;
     if profile.name.trim().is_empty() {
         return Err(RadrootsProfileEventIndexError::MissingNameField);
@@ -49,34 +40,35 @@ pub fn create_radroots_profile_event_metadata(
 
 pub trait ToRadrootsProfileEventIndex {
     fn to_radroots_profile_event(
-        self,
+        &self,
     ) -> Result<RadrootsProfileEventIndex, RadrootsProfileEventIndexError>;
 }
 
 impl ToRadrootsProfileEventIndex for RelayIndexerEvent {
     fn to_radroots_profile_event(
-        self,
+        &self,
     ) -> Result<RadrootsProfileEventIndex, RadrootsProfileEventIndexError> {
         let kind_u32 = self.kind.as_u64() as u32;
+        let id = self.id.clone();
+        let author = self.author.clone();
 
         let metadata = create_radroots_profile_event_metadata(
-            self.id.clone(),
-            self.author.clone(),
-            self.created_at as u64,
+            id.clone(),
+            author.clone(),
+            self.created_at,
             kind_u32,
-            self.content.clone(),
-            self.tags.clone(),
+            &self.content,
         )?;
 
         Ok(RadrootsProfileEventIndex {
             event: RadrootsNostrEvent {
-                id: self.id,
-                author: self.author,
+                id,
+                author,
                 created_at: self.created_at,
                 kind: kind_u32,
-                content: self.content,
-                tags: self.tags,
-                sig: self.sig,
+                content: self.content.clone(),
+                tags: self.tags.clone(),
+                sig: self.sig.clone(),
             },
             metadata,
         })

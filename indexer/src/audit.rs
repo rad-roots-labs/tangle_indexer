@@ -3,16 +3,16 @@
 use std::collections::HashSet;
 use std::sync::RwLock;
 
-use crate::utils::nostr::public_key_to_npub;
+use crate::utils::nostr::{normalize_nip05, public_key_to_npub};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use tracing::info;
 
 use crate::domain::resolvers::profile::ProfileResolver;
 use crate::relay::event::RelayIndexerEvent;
-use radroots_events::comment::models::RadrootsCommentEventIndex;
-use radroots_events::listing::models::RadrootsListingEventIndex;
-use radroots_events::profile::models::RadrootsProfileEventIndex;
+use radroots_events::comment::RadrootsCommentEventIndex;
+use radroots_events::listing::RadrootsListingEventIndex;
+use radroots_events::profile::RadrootsProfileEventIndex;
 
 #[derive(Clone, Debug)]
 pub struct AuditFilter {
@@ -123,12 +123,8 @@ pub fn set_profile_resolver(resolver: ProfileResolver) {
 }
 
 fn nip05_parts_from_metadata(nip05: &str) -> (String, String) {
-    let lower = nip05.to_lowercase();
-    if let Some((name, domain)) = lower.split_once('@') {
-        (format!("{name}@{domain}"), name.to_string())
-    } else {
-        (lower.clone(), lower)
-    }
+    let (full, local, _) = normalize_nip05(nip05);
+    (full, local)
 }
 
 fn should_log(
@@ -235,8 +231,19 @@ pub fn log_indexer_event(idx: &RelayIndexerEvent) {
     let (nip05_full_opt, nip05_local_opt) = if need_full || need_local {
         if let Ok(s) = STATE.read() {
             if let Some(res) = s.resolver.as_ref() {
-                let local = res.nip05_for_author(&idx.author).map(|s| s.to_string());
-                (None, local)
+                let full = if need_full {
+                    res.nip05_full_for_author(&idx.author)
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                let local = if need_local {
+                    res.nip05_local_for_author(&idx.author)
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                (full, local)
             } else {
                 (None, None)
             }
@@ -299,7 +306,7 @@ pub fn log_profile_event(evt: &RadrootsProfileEventIndex) {
 
     if !should_log(
         &evt.event.author,
-        evt.event.kind.try_into().unwrap(),
+        u64::from(evt.event.kind),
         evt.event.created_at,
         &evt.event.content,
         npub_opt,
@@ -349,10 +356,19 @@ pub fn log_listing_event(evt: &RadrootsListingEventIndex) {
     let (nip05_full_opt, nip05_local_opt) = if need_full || need_local {
         if let Ok(s) = STATE.read() {
             if let Some(res) = s.resolver.as_ref() {
-                let local = res
-                    .nip05_for_author(&evt.event.author)
-                    .map(|s| s.to_string());
-                (None, local)
+                let full = if need_full {
+                    res.nip05_full_for_author(&evt.event.author)
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                let local = if need_local {
+                    res.nip05_local_for_author(&evt.event.author)
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                (full, local)
             } else {
                 (None, None)
             }
@@ -415,10 +431,19 @@ pub fn log_comment_event(evt: &RadrootsCommentEventIndex) {
     let (nip05_full_opt, nip05_local_opt) = if need_full || need_local {
         if let Ok(s) = STATE.read() {
             if let Some(res) = s.resolver.as_ref() {
-                let local = res
-                    .nip05_for_author(&evt.event.author)
-                    .map(|s| s.to_string());
-                (None, local)
+                let full = if need_full {
+                    res.nip05_full_for_author(&evt.event.author)
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                let local = if need_local {
+                    res.nip05_local_for_author(&evt.event.author)
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                (full, local)
             } else {
                 (None, None)
             }

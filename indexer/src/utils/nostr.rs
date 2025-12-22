@@ -14,7 +14,24 @@ pub enum NostrUtilsError {
 
 pub fn public_key_to_npub(public_key_hex: &str) -> Result<String, NostrUtilsError> {
     let pubkey = PublicKey::from_hex(public_key_hex)?;
-    Ok(pubkey.to_bech32().expect("to_bech32 is infallible"))
+    let bech32 = match pubkey.to_bech32() {
+        Ok(value) => value,
+        Err(err) => match err {},
+    };
+    Ok(bech32)
+}
+
+pub(crate) fn normalize_nip05(nip05: &str) -> (String, String, String) {
+    let lower = nip05.to_lowercase();
+    let local = lower
+        .split_once('@')
+        .map(|(name, _)| name.to_string())
+        .unwrap_or_else(|| lower.clone());
+    let index_key = lower
+        .strip_suffix("@radroots.market")
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| lower.clone());
+    (lower, local, index_key)
 }
 
 pub fn get_tag_value<'a>(

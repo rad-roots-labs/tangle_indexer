@@ -1,10 +1,20 @@
 pub mod comment;
+pub mod follow;
+pub mod job_feedback;
+pub mod job_request;
+pub mod job_result;
 pub mod listing;
+pub mod post;
 pub mod profile;
 pub mod reaction;
 
 pub use comment::ToRadrootsCommentEventIndex;
+pub use follow::ToRadrootsFollowEventIndex;
+pub use job_feedback::ToRadrootsJobFeedbackEventIndex;
+pub use job_request::ToRadrootsJobRequestEventIndex;
+pub use job_result::ToRadrootsJobResultEventIndex;
 pub use listing::ToRadrootsListingEventIndex;
+pub use post::ToRadrootsPostEventIndex;
 pub use profile::ToRadrootsProfileEventIndex;
 pub use reaction::ToRadrootsReactionEventIndex;
 
