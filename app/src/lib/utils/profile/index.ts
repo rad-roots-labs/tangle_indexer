@@ -1,5 +1,5 @@
 import { _env } from "$lib/utils/_env";
-import { type HttpFetch, fetch_json } from "@radroots/apps-lib";
+import { type FetchJsonResult, type HttpFetch, fetch_json } from "@radroots/apps-lib";
 import type { PageLoadProfileData } from "@radroots/apps-lib-market";
 import type {
     RadrootsCommentEventMetadata,
@@ -7,7 +7,7 @@ import type {
     RadrootsProfileEventMetadata
 } from "@radroots/events-bindings";
 import type { RadrootsEventsIndexedManifest as radroots_events_indexed_manifest } from "@radroots/events-indexed-bindings";
-import { lib_nostr_npub_encode } from "@radroots/utils-nostr";
+import { nostr_npub_encode } from "@radroots/nostr";
 
 type ProfileRoutesKind = "author" | "npub" | "nip05";
 
@@ -25,19 +25,23 @@ async function fetch_listings(
     fetch_fn: HttpFetch,
     kind: ProfileRoutesKind,
     key: string
-): Promise<RadrootsListingEventMetadata[]> {
-    const manifest = await fetch_json<radroots_events_indexed_manifest>(
+): Promise<FetchJsonResult<RadrootsListingEventMetadata[]>> {
+    const manifest_res = await fetch_json<radroots_events_indexed_manifest>(
         fetch_fn,
         `${idx_url}/events/30402/${kind}/${encodeURIComponent(key)}/manifest.json`
     );
 
-    if (!manifest.shards.length) return [];
+    if (!manifest_res.ok) return manifest_res;
 
-    const shard = manifest.shards[0];
+    if (!manifest_res.data.shards.length) return { ok: true, data: [] };
+
+    const shard = manifest_res.data.shards[0];
     const shard_url = `${idx_url}/events/30402/${kind}/${encodeURIComponent(
         key
     )}/${shard.file}?v=${shard.sha256}`;
-    return fetch_json<RadrootsListingEventMetadata[]>(fetch_fn, shard_url);
+    const events_res = await fetch_json<RadrootsListingEventMetadata[]>(fetch_fn, shard_url);
+    if (!events_res.ok) return events_res;
+    return { ok: true, data: events_res.data };
 }
 
 async function fetch_comments_for_roots(
@@ -51,15 +55,11 @@ async function fetch_comments_for_roots(
             const url = `${idx_url}/events/1111/root/${encodeURIComponent(
                 id
             )}/metadata.json`;
-            try {
-                const metas = await fetch_json<RadrootsCommentEventMetadata[]>(
-                    fetch_fn,
-                    url
-                );
-                return [id, metas];
-            } catch {
-                return [id, [] as RadrootsCommentEventMetadata[]];
-            }
+            const metas_res = await fetch_json<RadrootsCommentEventMetadata[]>(
+                fetch_fn,
+                url
+            );
+            return [id, metas_res.ok ? metas_res.data : []];
         })
     );
 
@@ -75,26 +75,32 @@ export async function load_profile_indexed(
     fetch_fn: HttpFetch,
     kind: ProfileRoutesKind,
     key: string
-): Promise<PageLoadProfileDataWithComments> {
-    const profile = await fetch_json<RadrootsProfileEventMetadata>(
+): Promise<FetchJsonResult<PageLoadProfileDataWithComments>> {
+    const profile_res = await fetch_json<RadrootsProfileEventMetadata>(
         fetch_fn,
         `${idx_url}/events/0/${kind}/${encodeURIComponent(key)}/metadata.json`
     );
+    if (!profile_res.ok) return profile_res;
 
-    const listings = await fetch_listings(fetch_fn, kind, key);
-    const listing_ids = listings.map((m) => m.id.toLowerCase());
+    const listings_res = await fetch_listings(fetch_fn, kind, key);
+    if (!listings_res.ok) return listings_res;
+
+    const listing_ids = listings_res.data.map((m) => m.id.toLowerCase());
     const listing_comments = await fetch_comments_for_roots(fetch_fn, listing_ids);
 
-    const public_key = profile.author;
-    const npub = lib_nostr_npub_encode(public_key);
+    const public_key = profile_res.data.author;
+    const npub = nostr_npub_encode(public_key);
 
     return {
-        public_key,
-        npub,
-        events: {
-            profile,
-            listings,
-            listing_comments
+        ok: true,
+        data: {
+            public_key,
+            npub,
+            events: {
+                profile: profile_res.data,
+                listings: listings_res.data,
+                listing_comments
+            }
         }
     };
 }

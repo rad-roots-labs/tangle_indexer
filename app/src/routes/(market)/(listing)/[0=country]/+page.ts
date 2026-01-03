@@ -2,6 +2,7 @@ import { _env } from "$lib/utils/_env";
 import { load_listing_indexed } from "$lib/utils/listing";
 import type { RadrootsListingEventMetadata } from "@radroots/events-bindings";
 import type { RadrootsEventsIndexedManifest } from "@radroots/events-indexed-bindings";
+import { error } from "@sveltejs/kit";
 import type { EntryGenerator, PageLoad } from "./$types";
 
 const { RADROOTS_MARKET_INDEXES_URL: idx_url } = _env;
@@ -21,11 +22,12 @@ type PageLoadData = {
 export const load: PageLoad<PageLoadData> = async ({ fetch, params }) => {
     const { 0: country } = params;
     const indexed = await load_listing_indexed(fetch, "country", country);
+    if (!indexed.ok) throw error(indexed.status ?? 500, indexed.message);
 
     return {
         country,
-        manifest: indexed.manifest,
-        events: indexed.events,
+        manifest: indexed.data.manifest,
+        events: indexed.data.events,
     };
 };
 

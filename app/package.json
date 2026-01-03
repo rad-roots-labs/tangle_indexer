@@ -29,13 +29,13 @@
 		"vite": "7.0.6"
 	},
 	"dependencies": {
-		"@radroots/apps-lib": "*",
-		"@radroots/apps-lib-market": "*",
-		"@radroots/utils-nostr": "*",
-		"@radroots/core-bindings": "*",
-		"@radroots/events-bindings": "*",
-		"@radroots/events-indexed-bindings": "*",
-		"@radroots/trade-bindings": "*",
-		"@nostr-dev-kit/ndk": "2.14.33"
+		"@radroots/apps-lib": "workspace:*",
+		"@radroots/apps-lib-market": "workspace:*",
+		"@radroots/apps-nostr": "workspace:*",
+		"@radroots/core-bindings": "workspace:*",
+		"@radroots/events-bindings": "workspace:*",
+		"@radroots/events-indexed-bindings": "workspace:*",
+		"@radroots/nostr": "workspace:*",
+		"@radroots/trade-bindings": "workspace:*"
 	}
 }

@@ -1,6 +1,9 @@
 use anyhow::Result;
 use radroots_events::{
-    profile::{RadrootsProfile, RadrootsProfileEventIndex, RadrootsProfileEventMetadata},
+    profile::{
+        radroots_profile_type_from_tag_value, RadrootsProfile, RadrootsProfileEventIndex,
+        RadrootsProfileEventMetadata,
+    },
     RadrootsNostrEvent,
 };
 use thiserror::Error;
@@ -34,6 +37,7 @@ pub fn create_radroots_profile_event_metadata(
         author,
         published_at,
         kind,
+        profile_type: None,
         profile,
     })
 }
@@ -52,13 +56,19 @@ impl ToRadrootsProfileEventIndex for RelayIndexerEvent {
         let id = self.id.clone();
         let author = self.author.clone();
 
-        let metadata = create_radroots_profile_event_metadata(
+        let mut metadata = create_radroots_profile_event_metadata(
             id.clone(),
             author.clone(),
             self.created_at,
             kind_u32,
             &self.content,
         )?;
+        metadata.profile_type = self
+            .tags
+            .iter()
+            .filter(|tag| tag.get(0).map(|k| k == "t").unwrap_or(false))
+            .filter_map(|tag| tag.get(1))
+            .find_map(|value| radroots_profile_type_from_tag_value(value));
 
         Ok(RadrootsProfileEventIndex {
             event: RadrootsNostrEvent {

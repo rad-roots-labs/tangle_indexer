@@ -1,19 +1,18 @@
 use std::collections::HashMap;
 
-use nostr::key::{Error as PublicKeyError, PublicKey};
-use nostr::prelude::ToBech32;
+use radroots_nostr::prelude::{radroots_nostr_parse_pubkey, RadrootsNostrToBech32};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum NostrUtilsError {
-    #[error("Invalid hex for public key: {0}")]
-    InvalidPublicKey(#[from] PublicKeyError),
+    #[error("Invalid public key: {0}")]
+    InvalidPublicKey(#[from] radroots_nostr::parse::ParseError),
     #[error("Tag parsing error: {0}")]
     TagParseError(String),
 }
 
 pub fn public_key_to_npub(public_key_hex: &str) -> Result<String, NostrUtilsError> {
-    let pubkey = PublicKey::from_hex(public_key_hex)?;
+    let pubkey = radroots_nostr_parse_pubkey(public_key_hex)?;
     let bech32 = match pubkey.to_bech32() {
         Ok(value) => value,
         Err(err) => match err {},

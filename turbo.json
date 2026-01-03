@@ -33,7 +33,8 @@
             "dependsOn": [
                 "@radroots/apps-lib#build",
                 "@radroots/apps-lib-market#build",
-                "@radroots/utils-nostr#build",
+                "@radroots/apps-nostr#build",
+                "@radroots/nostr#build",
                 "@radroots/core-bindings#build",
                 "@radroots/events-bindings#build",
                 "@radroots/events-indexed-bindings#build",

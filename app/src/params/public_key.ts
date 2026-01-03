@@ -1,6 +1,6 @@
-import { regex_nostr_key } from "@radroots/utils-nostr";
+import { REGEX_NOSTR_KEY } from "@radroots/nostr";
 import type { ParamMatcher } from '@sveltejs/kit';
 
 export const match: ParamMatcher = (value: string): boolean => {
-    return regex_nostr_key.test(value);
+    return REGEX_NOSTR_KEY.test(value);
 };

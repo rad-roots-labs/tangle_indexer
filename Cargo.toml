@@ -7,7 +7,7 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 license = "AGPL-3.0"
 
 [workspace.dependencies]
@@ -15,6 +15,7 @@ radroots-core = { path = "../crates/core" }
 radroots-events = { path = "../crates/events" }
 radroots-events-codec = { path = "../crates/events-codec" }
 radroots-events-indexed = { path = "../crates/events-indexed" }
+radroots-nostr = { path = "../crates/nostr" }
 
 anyhow = { version = "1" }
 clap = { version = "4", features = ["derive"] }

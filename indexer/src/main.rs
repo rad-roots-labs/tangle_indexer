@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use radroots_market_indexer::{cli, run, telemetry, Settings};
+use radroots_radroots_indexer::{cli, run, telemetry, Settings};
 use tracing::info;
 
 #[tokio::main]

@@ -1,12 +1,12 @@
-use radroots_market_indexer::config::{Indexer, Listings, Relay, Settings};
-use radroots_market_indexer::domain::indexer::kind::IndexerEventKind;
-use radroots_market_indexer::domain::indexer::models::{
+use radroots_radroots_indexer::config::{Indexer, Listings, Relay, Settings};
+use radroots_radroots_indexer::domain::indexer::kind::IndexerEventKind;
+use radroots_radroots_indexer::domain::indexer::models::{
     EventCommentIndexes, EventFollowIndexes, EventIndexes, EventJobFeedbackIndexes,
     EventJobRequestIndexes, EventJobResultIndexes, EventListingIndexes, EventPostIndexes,
     EventProfileIndexes, EventReactionIndexes, WriteEventIndexes,
 };
-use radroots_market_indexer::domain::resolvers::profile::ProfileResolver;
-use radroots_market_indexer::relay::event::RelayIndexerEvent;
+use radroots_radroots_indexer::domain::resolvers::profile::ProfileResolver;
+use radroots_radroots_indexer::relay::event::RelayIndexerEvent;
 use radroots_events::kinds::{KIND_JOB_REQUEST_MIN, KIND_JOB_RESULT_MIN};
 use std::path::Path;
 use tempfile::tempdir;
