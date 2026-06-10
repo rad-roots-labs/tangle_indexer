@@ -1,0 +1,18 @@
+@font-face {
+    font-family: 'Brown';
+    src: url('/fonts/brown-regular/Brown-Bold.woff2') format('woff2'),
+        url('/fonts/brown-regular/Brown-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Brown';
+    src: url('/fonts/brown-regular/Brown-Regular.woff2') format('woff2'),
+        url('/fonts/brown-regular/Brown-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+

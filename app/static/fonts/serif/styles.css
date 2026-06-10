@@ -1,0 +1,49 @@
+@font-face {
+    font-family: 'RadrootsSerif';
+    src: url('/fonts/serif/RadrootsSerif-regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'RadrootsSerif';
+    src: url('/fonts/serif/RadrootsSerif-regular-italic.woff') format('woff');
+    font-weight: normal;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'RadrootsSerif';
+    src: url('/fonts/serif/RadrootsSerif-bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+@font-face {
+    font-family: 'RadrootsSerifDisplay';
+    src: url('/fonts/serif/RadrootsSerifDisplay-regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'RadrootsSerifDisplay';
+    src: url('/fonts/serif/RadrootsSerifDisplay-medium.woff') format('woff');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'RadrootsSerifDisplay';
+    src: url('/fonts/serif/RadrootsSerifDisplay-bold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
